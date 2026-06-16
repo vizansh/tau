@@ -22,6 +22,20 @@ from tau_agent.harness import (
 )
 from tau_agent.loop import run_agent_loop
 from tau_agent.messages import AgentMessage, AssistantMessage, ToolResultMessage, UserMessage
+from tau_agent.session import (
+    BranchSummaryEntry,
+    CompactionEntry,
+    CustomEntry,
+    JsonlSessionStorage,
+    LabelEntry,
+    LeafEntry,
+    MessageEntry,
+    ModelChangeEntry,
+    SessionEntry,
+    SessionInfoEntry,
+    SessionState,
+    ThinkingLevelChangeEntry,
+)
 from tau_agent.tools import AgentTool, AgentToolResult, ToolCall, ToolExecutor
 from tau_agent.types import JSONObject, JSONPrimitive, JSONValue
 
@@ -35,15 +49,27 @@ __all__ = [
     "AgentTool",
     "AgentToolResult",
     "AssistantMessage",
+    "BranchSummaryEntry",
+    "CompactionEntry",
+    "CustomEntry",
     "ErrorEvent",
     "EventListener",
     "JSONObject",
     "JSONPrimitive",
+    "JsonlSessionStorage",
     "JSONValue",
+    "LabelEntry",
+    "LeafEntry",
     "MessageDeltaEvent",
     "MessageEndEvent",
+    "MessageEntry",
     "MessageStartEvent",
+    "ModelChangeEntry",
+    "SessionEntry",
+    "SessionInfoEntry",
+    "SessionState",
     "SimpleCancellationToken",
+    "ThinkingLevelChangeEntry",
     "ToolCall",
     "ToolExecutionEndEvent",
     "ToolExecutionStartEvent",
