@@ -228,6 +228,13 @@ def _last_parent_id_from_state(state: SessionState) -> str | None:
     return None
 
 
+def default_session_path(cwd: Path) -> Path:
+    """Return Tau's default project-local session path for early TUI phases."""
+    path = cwd / ".tau" / "sessions" / "default.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def jsonl_session_storage(path: str | Path) -> JsonlSessionStorage:
     """Convenience factory for local JSONL coding-session storage."""
     return JsonlSessionStorage(path)

@@ -18,6 +18,7 @@ from tau_coding.session import (
     CodingSession,
     CodingSessionConfig,
     CommandResult,
+    default_session_path,
     jsonl_session_storage,
 )
 from tau_coding.skills import Skill, build_skill_index, expand_skill_command, load_skills
@@ -76,6 +77,7 @@ __all__ = [
     "create_read_tool_definition",
     "create_write_tool",
     "create_write_tool_definition",
+    "default_session_path",
     "expand_skill_command",
     "format_available_tools",
     "format_guidelines",

@@ -1,0 +1,140 @@
+"""Minimal Textual app for Tau coding sessions."""
+
+from pathlib import Path
+
+from textual.app import App, ComposeResult
+from textual.containers import Vertical
+from textual.widgets import Footer, Header, Input, Static
+from textual.worker import Worker
+
+from tau_ai import OpenAICompatibleProvider, openai_compatible_config_from_env
+from tau_coding.session import (
+    CodingSession,
+    CodingSessionConfig,
+    default_session_path,
+    jsonl_session_storage,
+)
+from tau_coding.tui.adapter import TuiEventAdapter
+from tau_coding.tui.state import TuiState
+from tau_coding.tui.widgets import TranscriptView
+
+
+class TauTuiApp(App[None]):
+    """Interactive Textual frontend for a ``CodingSession``."""
+
+    TITLE = "Tau"
+    CSS = """
+    Screen {
+        layout: vertical;
+    }
+
+    #status {
+        height: 1;
+        padding: 0 1;
+        color: $text-muted;
+    }
+
+    #transcript {
+        height: 1fr;
+        border: solid $accent;
+    }
+
+    #prompt {
+        dock: bottom;
+    }
+    """
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+        ("ctrl+q", "quit", "Quit"),
+    ]
+
+    def __init__(self, session: CodingSession) -> None:
+        super().__init__()
+        self.session = session
+        self.state = TuiState()
+        self.adapter = TuiEventAdapter(self.state)
+        self._prompt_worker: Worker[None] | None = None
+
+    def compose(self) -> ComposeResult:
+        """Compose the TUI widgets."""
+        yield Header()
+        yield Static("Ready", id="status")
+        with Vertical():
+            yield TranscriptView(id="transcript", wrap=True, highlight=True, markup=False)
+        yield Input(placeholder="Ask Tau…", id="prompt")
+        yield Footer()
+
+    async def on_mount(self) -> None:
+        """Focus the prompt when the app starts."""
+        self.query_one(Input).focus()
+        self._refresh()
+
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle a submitted prompt or slash command."""
+        text = event.value.strip()
+        event.input.value = ""
+        if not text:
+            return
+
+        command = self.session.handle_command(text)
+        if command.handled:
+            if command.message:
+                self.state.add_item("status", command.message)
+            self._refresh()
+            if command.exit_requested:
+                self.exit()
+            return
+
+        if self.state.running:
+            self.state.add_item("status", "Tau is already working. Press Escape to cancel.")
+            self._refresh()
+            return
+
+        self.state.add_item("user", text)
+        self._refresh()
+        self._prompt_worker = self.run_worker(self._run_prompt(text), exclusive=True)
+
+    async def _run_prompt(self, text: str) -> None:
+        """Run one prompt and stream session events into the TUI state."""
+        try:
+            async for event in self.session.prompt(text):
+                self.adapter.apply(event)
+                self.call_from_thread(self._refresh)
+        except Exception as exc:  # noqa: BLE001 - surface unexpected worker errors in the TUI
+            self.state.error = str(exc)
+            self.state.add_item("error", f"Error: {exc}")
+            self.state.running = False
+            self.call_from_thread(self._refresh)
+
+    def action_cancel(self) -> None:
+        """Cancel the active agent turn."""
+        if self.state.running:
+            self.session.cancel()
+            self.state.add_item("status", "Cancellation requested.")
+        else:
+            self.state.add_item("status", "Nothing to cancel.")
+        self._refresh()
+
+    def _refresh(self) -> None:
+        transcript = self.query_one("#transcript", TranscriptView)
+        transcript.update_from_state(self.state)
+        status = self.query_one("#status", Static)
+        status.update("Working…" if self.state.running else "Ready")
+
+
+async def run_tui_app(*, model: str, cwd: Path) -> None:
+    """Create the default provider/session and run the Textual app."""
+    provider = OpenAICompatibleProvider(openai_compatible_config_from_env())
+    try:
+        session = await CodingSession.load(
+            CodingSessionConfig(
+                provider=provider,
+                model=model,
+                cwd=cwd,
+                storage=jsonl_session_storage(default_session_path(cwd)),
+            )
+        )
+        app = TauTuiApp(session)
+        await app.run_async()
+    finally:
+        await provider.aclose()

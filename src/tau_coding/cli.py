@@ -11,6 +11,7 @@ from tau_ai import ModelProvider, OpenAICompatibleProvider, openai_compatible_co
 from tau_coding import __version__, create_coding_tools, load_skills
 from tau_coding.rendering import PrintOutputMode, create_event_renderer
 from tau_coding.system_prompt import BuildSystemPromptOptions, build_system_prompt
+from tau_coding.tui import run_tui_app
 
 DEFAULT_MODEL = "gpt-4.1-mini"
 
@@ -23,6 +24,7 @@ app = typer.Typer(
 
 @app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     prompt_arg: Annotated[
         str | None,
         typer.Argument(help="Prompt to run in non-interactive print mode."),
@@ -53,6 +55,16 @@ def main(
         typer.echo(f"tau {__version__}")
         raise typer.Exit()
 
+    if ctx.invoked_subcommand is not None:
+        return
+
+    if prompt_option is None and prompt_arg == "tui":
+        try:
+            anyio.run(run_openai_tui, model, cwd or Path.cwd())
+        except RuntimeError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        raise typer.Exit()
+
     prompt = prompt_option or prompt_arg
     if not prompt:
         typer.echo("Tau print mode is installed. Pass a prompt or run `tau --version`.")
@@ -64,6 +76,11 @@ def main(
         raise typer.BadParameter(str(exc)) from exc
     if not ok:
         raise typer.Exit(1)
+
+
+async def run_openai_tui(model: str, cwd: Path) -> None:
+    """Run the Textual TUI with the default OpenAI-compatible provider."""
+    await run_tui_app(model=model, cwd=cwd)
 
 
 async def run_openai_print_mode(

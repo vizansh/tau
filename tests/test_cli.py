@@ -150,3 +150,17 @@ def test_cli_exits_nonzero_when_print_mode_fails(monkeypatch: pytest.MonkeyPatch
     result = CliRunner().invoke(app, ["hello"])
 
     assert result.exit_code == 1
+
+
+def test_tui_command_invokes_tui_runner(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    calls: list[tuple[str, Path]] = []
+
+    async def fake_run_openai_tui(model: str, cwd: Path) -> None:
+        calls.append((model, cwd))
+
+    monkeypatch.setattr(cli, "run_openai_tui", fake_run_openai_tui)
+
+    result = CliRunner().invoke(app, ["--cwd", str(tmp_path), "--model", "fake", "tui"])
+
+    assert result.exit_code == 0
+    assert calls == [("fake", tmp_path)]
