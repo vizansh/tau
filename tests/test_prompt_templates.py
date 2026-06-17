@@ -12,7 +12,7 @@ from tau_coding.resources import ResourceError
 
 
 def test_load_prompt_templates_missing_directory_returns_empty(tmp_path: Path) -> None:
-    assert load_prompt_templates(TauResourcePaths(root=tmp_path)) == []
+    assert load_prompt_templates(TauResourcePaths(root=tmp_path, agents_root=None)) == []
 
 
 def test_load_prompt_templates_from_markdown_files(tmp_path: Path) -> None:
@@ -23,11 +23,45 @@ def test_load_prompt_templates_from_markdown_files(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    templates = load_prompt_templates(TauResourcePaths(root=tmp_path))
+    templates = load_prompt_templates(TauResourcePaths(root=tmp_path, agents_root=None))
 
     assert len(templates) == 1
     assert templates[0].name == "review"
     assert templates[0].description == "Review code"
+
+
+def test_load_prompt_templates_includes_agents_directories(tmp_path: Path) -> None:
+    tau_home = tmp_path / "home" / ".tau"
+    agents_home = tmp_path / "home" / ".agents"
+    cwd = tmp_path / "project"
+    (agents_home / "prompts").mkdir(parents=True)
+    (agents_home / "prompts" / "user.md").write_text("User prompt", encoding="utf-8")
+    (cwd / ".agents" / "prompts").mkdir(parents=True)
+    (cwd / ".agents" / "prompts" / "project.md").write_text("Project prompt", encoding="utf-8")
+
+    templates = load_prompt_templates(
+        TauResourcePaths(root=tau_home, agents_root=agents_home, cwd=cwd)
+    )
+
+    assert [template.name for template in templates] == ["project", "user"]
+
+
+def test_project_prompt_template_overrides_user_template(tmp_path: Path) -> None:
+    tau_home = tmp_path / "home" / ".tau"
+    agents_home = tmp_path / "home" / ".agents"
+    cwd = tmp_path / "project"
+    (agents_home / "prompts").mkdir(parents=True)
+    (agents_home / "prompts" / "review.md").write_text("User review", encoding="utf-8")
+    (cwd / ".agents" / "prompts").mkdir(parents=True)
+    (cwd / ".agents" / "prompts" / "review.md").write_text("Project review", encoding="utf-8")
+
+    templates = load_prompt_templates(
+        TauResourcePaths(root=tau_home, agents_root=agents_home, cwd=cwd)
+    )
+
+    assert len(templates) == 1
+    assert templates[0].path == cwd / ".agents" / "prompts" / "review.md"
+    assert templates[0].content == "Project review"
 
 
 def test_render_prompt_template_replaces_variables() -> None:

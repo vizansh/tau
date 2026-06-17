@@ -23,34 +23,20 @@ class Skill:
 
 
 def load_skills(paths: TauResourcePaths | None = None) -> list[Skill]:
-    """Load markdown skills from `paths.skills_dir` in deterministic order."""
+    """Load markdown skills from Tau and `.agents` resource directories.
+
+    Resource directories are loaded in increasing precedence order, so project
+    resources override user resources with the same skill name. Duplicate names
+    within the same directory remain invalid.
+    """
     resource_paths = paths or TauResourcePaths()
-    skills_dir = resource_paths.skills_dir
-    if not skills_dir.exists():
-        return []
+    skills_by_name: dict[str, Skill] = {}
 
-    skills: list[Skill] = []
-    seen: set[str] = set()
+    for skills_dir in resource_paths.skills_dirs:
+        for skill in _load_skills_from_dir(skills_dir):
+            skills_by_name[skill.name] = skill
 
-    for path in sorted(skills_dir.iterdir(), key=lambda item: item.name):
-        skill_path: Path | None = None
-        name = path.stem
-        if path.is_dir():
-            skill_path = path / "SKILL.md"
-            name = path.name
-            if not skill_path.exists():
-                continue
-        elif path.is_file() and path.suffix.lower() == ".md":
-            skill_path = path
-        else:
-            continue
-
-        if name in seen:
-            raise ResourceError(f"Duplicate skill name: {name}")
-        seen.add(name)
-        skills.append(_load_skill(name, skill_path))
-
-    return sorted(skills, key=lambda skill: skill.name)
+    return sorted(skills_by_name.values(), key=lambda skill: skill.name)
 
 
 def expand_skill_command(text: str, skills: Sequence[Skill]) -> str | None:
@@ -87,6 +73,34 @@ def build_skill_index(skills: Sequence[Skill]) -> str:
         description = skill.description or "No description"
         lines.append(f"- {skill.name}: {description}")
     return "\n".join(lines)
+
+
+def _load_skills_from_dir(skills_dir: Path) -> list[Skill]:
+    if not skills_dir.exists() or not skills_dir.is_dir():
+        return []
+
+    skills: list[Skill] = []
+    seen: set[str] = set()
+    for path in sorted(skills_dir.iterdir(), key=lambda item: item.name):
+        skill_path: Path | None = None
+        name = path.stem
+        if path.is_dir():
+            skill_path = path / "SKILL.md"
+            name = path.name
+            if not skill_path.exists():
+                continue
+        elif path.is_file() and path.suffix.lower() == ".md":
+            if path.name.upper() == "AGENTS.MD":
+                continue
+            skill_path = path
+        else:
+            continue
+
+        if name in seen:
+            raise ResourceError(f"Duplicate skill name: {name}")
+        seen.add(name)
+        skills.append(_load_skill(name, skill_path))
+    return skills
 
 
 def _load_skill(name: str, path: Path) -> Skill:

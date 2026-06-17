@@ -10,6 +10,7 @@ from tau_agent import AgentHarness, AgentHarnessConfig
 from tau_ai import ModelProvider, OpenAICompatibleProvider, openai_compatible_config_from_env
 from tau_coding import __version__, create_coding_tools, load_skills
 from tau_coding.rendering import PrintOutputMode, create_event_renderer
+from tau_coding.resources import TauResourcePaths
 from tau_coding.system_prompt import BuildSystemPromptOptions, build_system_prompt
 from tau_coding.tui import run_tui_app
 
@@ -103,6 +104,7 @@ async def run_print_mode(
     cwd: Path,
     provider: ModelProvider,
     output: PrintOutputMode = PrintOutputMode.text,
+    resource_paths: TauResourcePaths | None = None,
 ) -> bool:
     """Run one non-interactive prompt and print streamed events.
 
@@ -110,7 +112,7 @@ async def run_print_mode(
     can fail non-interactive runs while still rendering the error message.
     """
     tools = create_coding_tools(cwd=cwd)
-    skills = load_skills()
+    skills = load_skills(resource_paths or TauResourcePaths(cwd=cwd))
     system = build_system_prompt(BuildSystemPromptOptions(cwd=cwd, tools=tools, skills=skills))
     harness = AgentHarness(
         AgentHarnessConfig(

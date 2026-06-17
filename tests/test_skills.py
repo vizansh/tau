@@ -7,7 +7,7 @@ from tau_coding.resources import ResourceError
 
 
 def test_load_skills_missing_directory_returns_empty(tmp_path: Path) -> None:
-    assert load_skills(TauResourcePaths(root=tmp_path)) == []
+    assert load_skills(TauResourcePaths(root=tmp_path, agents_root=None)) == []
 
 
 def test_load_skills_from_directory_and_file(tmp_path: Path) -> None:
@@ -19,11 +19,56 @@ def test_load_skills_from_directory_and_file(tmp_path: Path) -> None:
     )
     (skills_dir / "git-review.md").write_text("# Git Review\nReview diffs.", encoding="utf-8")
 
-    skills = load_skills(TauResourcePaths(root=tmp_path))
+    skills = load_skills(TauResourcePaths(root=tmp_path, agents_root=None))
 
     assert [skill.name for skill in skills] == ["git-review", "python-testing"]
     assert skills[0].description == "Git Review"
     assert skills[1].description == "Test Python code"
+
+
+def test_load_skills_includes_user_and_project_agents_directories(tmp_path: Path) -> None:
+    tau_home = tmp_path / "home" / ".tau"
+    agents_home = tmp_path / "home" / ".agents"
+    cwd = tmp_path / "project"
+    (agents_home / "skills").mkdir(parents=True)
+    (agents_home / "skills" / "user-skill.md").write_text(
+        "# User Skill\nFrom user agents.", encoding="utf-8"
+    )
+    (cwd / ".agents" / "skills").mkdir(parents=True)
+    (cwd / ".agents" / "skills" / "project-skill.md").write_text(
+        "# Project Skill\nFrom project agents.", encoding="utf-8"
+    )
+
+    skills = load_skills(TauResourcePaths(root=tau_home, agents_root=agents_home, cwd=cwd))
+
+    assert [skill.name for skill in skills] == ["project-skill", "user-skill"]
+
+
+def test_project_agents_skill_overrides_user_agents_skill(tmp_path: Path) -> None:
+    tau_home = tmp_path / "home" / ".tau"
+    agents_home = tmp_path / "home" / ".agents"
+    cwd = tmp_path / "project"
+    (agents_home / "skills").mkdir(parents=True)
+    (agents_home / "skills" / "review.md").write_text("# User Review", encoding="utf-8")
+    (cwd / ".agents" / "skills").mkdir(parents=True)
+    (cwd / ".agents" / "skills" / "review.md").write_text("# Project Review", encoding="utf-8")
+
+    skills = load_skills(TauResourcePaths(root=tau_home, agents_root=agents_home, cwd=cwd))
+
+    assert len(skills) == 1
+    assert skills[0].path == cwd / ".agents" / "skills" / "review.md"
+    assert skills[0].description == "Project Review"
+
+
+def test_agents_md_is_not_loaded_as_a_skill(tmp_path: Path) -> None:
+    agents_home = tmp_path / ".agents"
+    agents_home.mkdir()
+    (agents_home / "AGENTS.md").write_text("# Instructions", encoding="utf-8")
+    (agents_home / "review.md").write_text("# Review", encoding="utf-8")
+
+    skills = load_skills(TauResourcePaths(root=tmp_path / ".tau", agents_root=agents_home))
+
+    assert [skill.name for skill in skills] == ["review"]
 
 
 def test_load_skills_rejects_duplicate_names(tmp_path: Path) -> None:
@@ -33,14 +78,14 @@ def test_load_skills_rejects_duplicate_names(tmp_path: Path) -> None:
     (skills_dir / "dup.md").write_text("# File skill", encoding="utf-8")
 
     with pytest.raises(ResourceError, match="Duplicate skill name"):
-        load_skills(TauResourcePaths(root=tmp_path))
+        load_skills(TauResourcePaths(root=tmp_path, agents_root=None))
 
 
 def test_expand_skill_command_includes_skill_and_user_request(tmp_path: Path) -> None:
     skills_dir = tmp_path / "skills"
     skills_dir.mkdir()
     (skills_dir / "testing.md").write_text("# Testing\nRun pytest.", encoding="utf-8")
-    skills = load_skills(TauResourcePaths(root=tmp_path))
+    skills = load_skills(TauResourcePaths(root=tmp_path, agents_root=None))
 
     expanded = expand_skill_command("/skill:testing add parser tests", skills)
 
@@ -51,7 +96,12 @@ def test_expand_skill_command_includes_skill_and_user_request(tmp_path: Path) ->
 
 
 def test_expand_skill_command_returns_none_for_normal_prompt(tmp_path: Path) -> None:
-    assert expand_skill_command("hello", load_skills(TauResourcePaths(root=tmp_path))) is None
+    assert (
+        expand_skill_command(
+            "hello", load_skills(TauResourcePaths(root=tmp_path, agents_root=None))
+        )
+        is None
+    )
 
 
 def test_expand_skill_command_rejects_unknown_skill() -> None:
@@ -67,6 +117,6 @@ def test_build_skill_index(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    assert build_skill_index(load_skills(TauResourcePaths(root=tmp_path))) == (
+    assert build_skill_index(load_skills(TauResourcePaths(root=tmp_path, agents_root=None))) == (
         "Available skills:\n- testing: Test things"
     )

@@ -26,21 +26,13 @@ class PromptTemplate:
 
 
 def load_prompt_templates(paths: TauResourcePaths | None = None) -> list[PromptTemplate]:
-    """Load markdown prompt templates from `paths.prompts_dir`."""
+    """Load markdown prompt templates from Tau and `.agents` resource directories."""
     resource_paths = paths or TauResourcePaths()
-    prompts_dir = resource_paths.prompts_dir
-    if not prompts_dir.exists():
-        return []
-
-    templates: list[PromptTemplate] = []
-    seen: set[str] = set()
-    for path in sorted(prompts_dir.glob("*.md"), key=lambda item: item.name):
-        name = path.stem
-        if name in seen:
-            raise ResourceError(f"Duplicate prompt template name: {name}")
-        seen.add(name)
-        templates.append(_load_prompt_template(name, path))
-    return templates
+    templates_by_name: dict[str, PromptTemplate] = {}
+    for prompts_dir in resource_paths.prompts_dirs:
+        for template in _load_prompt_templates_from_dir(prompts_dir):
+            templates_by_name[template.name] = template
+    return sorted(templates_by_name.values(), key=lambda template: template.name)
 
 
 def render_prompt_template(template: PromptTemplate, variables: Mapping[str, str]) -> str:
@@ -54,6 +46,21 @@ def render_prompt_template(template: PromptTemplate, variables: Mapping[str, str
         return value
 
     return _TEMPLATE_VARIABLE_RE.sub(replace, template.content)
+
+
+def _load_prompt_templates_from_dir(prompts_dir: Path) -> list[PromptTemplate]:
+    if not prompts_dir.exists() or not prompts_dir.is_dir():
+        return []
+
+    templates: list[PromptTemplate] = []
+    seen: set[str] = set()
+    for path in sorted(prompts_dir.glob("*.md"), key=lambda item: item.name):
+        name = path.stem
+        if name in seen:
+            raise ResourceError(f"Duplicate prompt template name: {name}")
+        seen.add(name)
+        templates.append(_load_prompt_template(name, path))
+    return templates
 
 
 def _load_prompt_template(name: str, path: Path) -> PromptTemplate:

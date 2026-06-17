@@ -14,6 +14,7 @@ from tau_ai import (
 from tau_coding import cli
 from tau_coding.cli import app, run_print_mode
 from tau_coding.rendering import PrintOutputMode
+from tau_coding.resources import TauResourcePaths
 from tau_coding.system_prompt import BuildSystemPromptOptions, build_system_prompt
 from tau_coding.tools import create_coding_tools
 
@@ -47,7 +48,13 @@ async def test_run_print_mode_prints_final_assistant_text(
         ]
     )
 
-    ok = await run_print_mode(prompt="Say hello", model="fake", cwd=tmp_path, provider=provider)
+    ok = await run_print_mode(
+        prompt="Say hello",
+        model="fake",
+        cwd=tmp_path,
+        provider=provider,
+        resource_paths=TauResourcePaths(root=tmp_path / "resources", agents_root=None),
+    )
 
     captured = capsys.readouterr()
     assert ok is True
