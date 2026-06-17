@@ -101,13 +101,18 @@ Slash commands now expose the active provider/model configuration:
 
 ```text
 /provider
+/provider <name>
 /model
 /model <name>
 ```
 
 `/model <name>` switches the active model for future turns in the running
-process when the model is known for the active provider. Provider switching is
-still a startup concern and is done with `--provider <name>`.
+process when the model is known for the active provider.
+
+`/provider <name>` switches the active provider for future turns in the running
+process and resets the active model to that provider's configured default. The
+provider must already exist in `~/.tau/providers.json`, and its API key must be
+available through the configured environment variable.
 
 ## Boundary
 
@@ -117,13 +122,11 @@ The reusable harness still receives only a ready `ModelProvider` and a model
 name. It does not know about Tau home, JSON config files, environment variables,
 or CLI/TUI setup behavior.
 
-## Remaining Phase 18 work
+## Limitations
 
-This is the foundation, not the full setup UX. Remaining work includes:
-
-- editing provider config through commands/TUI
-- richer provider switching in a running TUI
-- docs for config migration and troubleshooting
+Phase 18 intentionally keeps setup minimal. Provider metadata is edited through
+the CLI setup command, not an interactive TUI form, and API keys are read from
+environment variables instead of a secure keyring.
 
 ## Tests
 

@@ -14,10 +14,13 @@ from tau_ai import FakeProvider, ProviderResponseEndEvent, ProviderResponseStart
 from tau_coding import (
     CodingSession,
     CodingSessionConfig,
+    OpenAICompatibleProviderConfig,
+    ProviderSettings,
     SessionManager,
     TauPaths,
     TauResourcePaths,
 )
+from tau_coding import session as coding_session_module
 
 
 async def _collect_session_events(session_stream: object) -> list[object]:
@@ -34,6 +37,15 @@ def _config(
         storage=storage,
         cwd=tmp_path,
     )
+
+
+class SwitchableFakeProvider:
+    def __init__(self, config: object) -> None:
+        self.config = config
+        self.closed = False
+
+    async def aclose(self) -> None:
+        self.closed = True
 
 
 @pytest.mark.anyio
@@ -329,6 +341,60 @@ async def test_session_loads_with_resource_diagnostics_instead_of_failing(
     assert len(session.resource_diagnostics) == 1
     assert "Duplicate skill name" in session.resource_diagnostics[0].message
     assert "Resource diagnostics: 1" in (session.handle_command("/status").message or "")
+
+
+@pytest.mark.anyio
+async def test_session_switches_configured_provider(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    created_providers: list[SwitchableFakeProvider] = []
+
+    def create_provider(config: object) -> SwitchableFakeProvider:
+        provider = SwitchableFakeProvider(config)
+        created_providers.append(provider)
+        return provider
+
+    monkeypatch.setenv("LOCAL_API_KEY", "test-key")
+    monkeypatch.setattr(coding_session_module, "OpenAICompatibleProvider", create_provider)
+    storage = JsonlSessionStorage(tmp_path / "session.jsonl")
+    settings = ProviderSettings(
+        default_provider="openai",
+        providers=(
+            OpenAICompatibleProviderConfig(name="openai"),
+            OpenAICompatibleProviderConfig(
+                name="local",
+                base_url="http://localhost:11434/v1",
+                api_key_env="LOCAL_API_KEY",
+                models=("qwen", "llama"),
+                default_model="qwen",
+            ),
+        ),
+    )
+    session = await CodingSession.load(
+        CodingSessionConfig(
+            provider=FakeProvider([]),
+            model="fake",
+            system="You are Tau.",
+            storage=storage,
+            cwd=tmp_path,
+            provider_name="openai",
+            provider_settings=settings,
+        )
+    )
+
+    result = session.handle_command("/provider local")
+
+    assert result.message is not None
+    assert "Current provider: local" in result.message
+    assert "Current model: qwen" in result.message
+    assert session.provider_name == "local"
+    assert session.model == "qwen"
+    assert session.available_models == ("qwen", "llama")
+    assert len(created_providers) == 1
+
+    await session.aclose()
+
+    assert created_providers[0].closed is True
 
 
 def test_minimal_commands_are_handled(tmp_path: Path) -> None:

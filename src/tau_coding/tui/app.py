@@ -324,6 +324,7 @@ async def run_tui_app(
     )
     provider = OpenAICompatibleProvider(openai_compatible_config_from_provider(selection.provider))
     manager = session_manager or SessionManager()
+    session: CodingSession | None = None
     try:
         if session_id is not None:
             existing_record = manager.get_session(session_id)
@@ -348,4 +349,8 @@ async def run_tui_app(
         app = TauTuiApp(session)
         await app.run_async()
     finally:
+        if session is not None:
+            close_session = getattr(session, "aclose", None)
+            if close_session is not None:
+                await close_session()
         await provider.aclose()

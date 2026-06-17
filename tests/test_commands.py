@@ -32,6 +32,11 @@ class FakeSession:
     def set_model(self, model: str) -> None:
         self.model = model
 
+    def set_provider(self, provider_name: str) -> None:
+        self.provider_name = provider_name
+        self.model = "local-model"
+        self.available_models = ("local-model",)
+
 
 def test_registry_ignores_ordinary_prompts_and_skill_expansion(tmp_path: Path) -> None:
     registry = create_default_command_registry()
@@ -102,6 +107,29 @@ def test_provider_command_lists_configured_providers(tmp_path: Path) -> None:
     assert result.message is not None
     assert "Current provider: openai" in result.message
     assert "Available providers: openai, local" in result.message
+
+
+def test_provider_command_switches_provider(tmp_path: Path) -> None:
+    session = FakeSession(tmp_path)
+
+    result = create_default_command_registry().execute(session, "/provider local")
+
+    assert result.message is not None
+    assert "Current provider: local" in result.message
+    assert "Current model: local-model" in result.message
+    assert session.provider_name == "local"
+    assert session.model == "local-model"
+
+
+def test_provider_command_rejects_unknown_provider(tmp_path: Path) -> None:
+    session = FakeSession(tmp_path)
+
+    result = create_default_command_registry().execute(session, "/provider missing")
+
+    assert result.message is not None
+    assert "Unknown provider: missing" in result.message
+    assert "Available providers: local, openai" in result.message
+    assert session.provider_name == "openai"
 
 
 def test_skills_lists_loaded_skills(tmp_path: Path) -> None:

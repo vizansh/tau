@@ -16,14 +16,18 @@ from tau_agent.session import (
     SessionStorage,
 )
 from tau_agent.tools import AgentTool
-from tau_ai import ModelProvider
+from tau_ai import ModelProvider, OpenAICompatibleProvider
 from tau_coding.commands import CommandRegistry, CommandResult, create_default_command_registry
 from tau_coding.paths import TauPaths
 from tau_coding.prompt_templates import (
     PromptTemplate,
     load_prompt_templates_with_diagnostics,
 )
-from tau_coding.provider_config import ProviderSettings
+from tau_coding.provider_config import (
+    ProviderConfigError,
+    ProviderSettings,
+    openai_compatible_config_from_provider,
+)
 from tau_coding.resources import ResourceDiagnostic, ResourceError, TauResourcePaths
 from tau_coding.session_manager import SessionManager
 from tau_coding.skills import Skill, expand_skill_command, load_skills_with_diagnostics
@@ -84,6 +88,9 @@ class CodingSession:
         self._prompt_templates = prompt_templates
         self._resource_diagnostics = resource_diagnostics
         self._command_registry = command_registry or create_default_command_registry()
+        self._provider_name = config.provider_name
+        self._provider_settings = config.provider_settings
+        self._owned_providers: list[OpenAICompatibleProvider] = []
 
     @classmethod
     async def load(cls, config: CodingSessionConfig) -> CodingSession:
@@ -158,21 +165,21 @@ class CodingSession:
     @property
     def provider_name(self) -> str:
         """Return the active provider name."""
-        return self._config.provider_name
+        return self._provider_name
 
     @property
     def available_providers(self) -> tuple[str, ...]:
         """Return configured provider names."""
-        if self._config.provider_settings is None:
-            return (self._config.provider_name,)
-        return tuple(provider.name for provider in self._config.provider_settings.providers)
+        if self._provider_settings is None:
+            return (self._provider_name,)
+        return tuple(provider.name for provider in self._provider_settings.providers)
 
     @property
     def available_models(self) -> tuple[str, ...]:
         """Return configured model names for the active provider."""
-        if self._config.provider_settings is None:
+        if self._provider_settings is None:
             return (self.model,)
-        provider = self._config.provider_settings.get_provider(self._config.provider_name)
+        provider = self._provider_settings.get_provider(self._provider_name)
         return provider.models
 
     @property
@@ -234,6 +241,33 @@ class CodingSession:
         self._harness.config.model = model
         if self._config.session_id is not None and self._config.session_manager is not None:
             self._config.session_manager.touch_session(self._config.session_id, model=model)
+
+    def set_provider(self, provider_name: str) -> None:
+        """Switch the active provider and reset to that provider's default model."""
+        if self._provider_settings is None:
+            raise ProviderConfigError("Provider settings are not available for this session")
+
+        provider_config = self._provider_settings.get_provider(provider_name)
+        if provider_config.name == self._provider_name:
+            self.set_model(provider_config.default_model)
+            return
+
+        try:
+            runtime_config = openai_compatible_config_from_provider(provider_config)
+        except RuntimeError as exc:
+            raise ProviderConfigError(str(exc)) from exc
+
+        provider = OpenAICompatibleProvider(runtime_config)
+        self._owned_providers.append(provider)
+        self._harness.config.provider = provider
+        self._provider_name = provider_config.name
+        self.set_model(provider_config.default_model)
+
+    async def aclose(self) -> None:
+        """Close runtime providers created by this coding session."""
+        for provider in self._owned_providers:
+            await provider.aclose()
+        self._owned_providers.clear()
 
     def handle_command(self, text: str) -> CommandResult:
         """Handle minimal coding-session slash commands.
