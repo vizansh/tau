@@ -49,20 +49,22 @@ Example:
       "base_url": "http://localhost:11434/v1",
       "api_key_env": "LOCAL_API_KEY",
       "models": ["qwen", "llama"],
-      "default_model": "qwen"
+      "default_model": "qwen",
+      "timeout_seconds": 120
     }
   ]
 }
 ```
 
 API keys are not written to this file. Each provider entry names the environment
-variable that should contain its API key.
+variable that should contain its API key. `timeout_seconds` is optional and
+defaults to `60`; when present, it must be greater than zero.
 
 Useful commands:
 
 ```bash
 tau providers
-tau --provider local --model qwen setup
+tau --provider local --model qwen --timeout-seconds 120 setup
 ```
 
 Inside the TUI:

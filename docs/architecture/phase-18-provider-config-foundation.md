@@ -36,6 +36,7 @@ provider: openai
 model: gpt-4.1-mini
 api key env var: OPENAI_API_KEY
 base URL env var: OPENAI_BASE_URL
+timeout env var: OPENAI_TIMEOUT_SECONDS
 ```
 
 API keys are not stored in the config file. Provider entries name the
@@ -53,7 +54,8 @@ environment variable that should hold the key.
       "base_url": "http://localhost:11434/v1",
       "api_key_env": "LOCAL_API_KEY",
       "models": ["qwen", "llama"],
-      "default_model": "qwen"
+      "default_model": "qwen",
+      "timeout_seconds": 120
     }
   ]
 }
@@ -86,6 +88,7 @@ Tau can also create or update an OpenAI-compatible provider entry:
 tau --provider local \
   --base-url http://localhost:11434/v1 \
   --api-key-env LOCAL_API_KEY \
+  --timeout-seconds 120 \
   --model qwen \
   setup
 ```
@@ -94,6 +97,11 @@ The setup options are top-level options before the `setup` command word. This
 preserves the Pi-style `tau "prompt"` form while still adding a lightweight
 setup flow. Setup writes provider metadata only; it warns if the named API key
 environment variable is not currently set.
+
+Provider HTTP timeouts are configurable through `timeout_seconds` in
+`~/.tau/providers.json`. The default OpenAI-compatible provider can also read
+`OPENAI_TIMEOUT_SECONDS`. The configured value is passed to the HTTPX streaming
+client instead of keeping timeout behavior hardcoded in the provider adapter.
 
 ## Slash commands
 
@@ -144,6 +152,7 @@ The tests verify:
 - missing config falls back to OpenAI-compatible defaults
 - provider settings round-trip through `~/.tau/providers.json`
 - provider setup and listing CLI behavior
+- provider HTTP timeout parsing and runtime config forwarding
 - default provider/model selection
 - configured API key environment variables
 - CLI provider/model forwarding

@@ -6,7 +6,11 @@ from os import environ
 from pathlib import Path
 from typing import Any
 
-from tau_ai import OpenAICompatibleConfig, openai_compatible_config_from_env
+from tau_ai import (
+    DEFAULT_OPENAI_COMPATIBLE_TIMEOUT_SECONDS,
+    OpenAICompatibleConfig,
+    openai_compatible_config_from_env,
+)
 from tau_ai.env import DEFAULT_OPENAI_COMPATIBLE_BASE_URL
 from tau_coding.paths import TauPaths
 
@@ -27,6 +31,11 @@ class OpenAICompatibleProviderConfig:
     api_key_env: str = "OPENAI_API_KEY"
     models: tuple[str, ...] = (DEFAULT_MODEL,)
     default_model: str = DEFAULT_MODEL
+    timeout_seconds: float = DEFAULT_OPENAI_COMPATIBLE_TIMEOUT_SECONDS
+
+    def __post_init__(self) -> None:
+        if isinstance(self.timeout_seconds, bool) or self.timeout_seconds <= 0:
+            raise ProviderConfigError("Provider timeout_seconds must be greater than 0")
 
     def to_json(self) -> dict[str, Any]:
         """Serialize this provider config to JSON-compatible data."""
@@ -37,6 +46,7 @@ class OpenAICompatibleProviderConfig:
             "api_key_env": self.api_key_env,
             "models": list(self.models),
             "default_model": self.default_model,
+            "timeout_seconds": self.timeout_seconds,
         }
 
 
@@ -157,12 +167,17 @@ def openai_compatible_config_from_provider(
         provider.name == DEFAULT_PROVIDER_NAME
         and provider.api_key_env == "OPENAI_API_KEY"
         and provider.base_url == DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+        and provider.timeout_seconds == DEFAULT_OPENAI_COMPATIBLE_TIMEOUT_SECONDS
     ):
         return openai_compatible_config_from_env(base_url_var="OPENAI_BASE_URL")
     api_key = environ.get(provider.api_key_env)
     if not api_key:
         raise RuntimeError(f"Missing required environment variable: {provider.api_key_env}")
-    return OpenAICompatibleConfig(api_key=api_key, base_url=provider.base_url.rstrip("/"))
+    return OpenAICompatibleConfig(
+        api_key=api_key,
+        base_url=provider.base_url.rstrip("/"),
+        timeout_seconds=provider.timeout_seconds,
+    )
 
 
 def _provider_from_json(data: object) -> OpenAICompatibleProviderConfig:
@@ -176,6 +191,10 @@ def _provider_from_json(data: object) -> OpenAICompatibleProviderConfig:
     api_key_env = _string(data.get("api_key_env"), f"providers[{name}].api_key_env")
     models = _string_tuple(data.get("models"), f"providers[{name}].models")
     default_model = _string(data.get("default_model"), f"providers[{name}].default_model")
+    timeout_seconds = _positive_float(
+        data.get("timeout_seconds", DEFAULT_OPENAI_COMPATIBLE_TIMEOUT_SECONDS),
+        f"providers[{name}].timeout_seconds",
+    )
     if default_model not in models:
         models = (*models, default_model)
     return OpenAICompatibleProviderConfig(
@@ -184,6 +203,7 @@ def _provider_from_json(data: object) -> OpenAICompatibleProviderConfig:
         api_key_env=api_key_env,
         models=models,
         default_model=default_model,
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -200,3 +220,12 @@ def _string_tuple(value: object, field_name: str) -> tuple[str, ...]:
     if len(items) != len(value):
         raise ProviderConfigError(f"Provider field must be a string list: {field_name}")
     return items
+
+
+def _positive_float(value: object, field_name: str) -> float:
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        raise ProviderConfigError(f"Provider field must be a positive number: {field_name}")
+    converted = float(value)
+    if converted <= 0:
+        raise ProviderConfigError(f"Provider field must be greater than 0: {field_name}")
+    return converted

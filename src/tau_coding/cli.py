@@ -8,7 +8,11 @@ import anyio
 import typer
 
 from tau_agent import AgentHarness, AgentHarnessConfig
-from tau_ai import ModelProvider, OpenAICompatibleProvider
+from tau_ai import (
+    DEFAULT_OPENAI_COMPATIBLE_TIMEOUT_SECONDS,
+    ModelProvider,
+    OpenAICompatibleProvider,
+)
 from tau_ai.env import DEFAULT_OPENAI_COMPATIBLE_BASE_URL
 from tau_coding import __version__, create_coding_tools, load_skills_with_diagnostics
 from tau_coding.context import discover_project_context
@@ -48,6 +52,7 @@ def setup_command(
     base_url: str = DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
     api_key_env: str = "OPENAI_API_KEY",
     model: str = DEFAULT_MODEL,
+    timeout_seconds: float = DEFAULT_OPENAI_COMPATIBLE_TIMEOUT_SECONDS,
     set_default: bool = True,
 ) -> None:
     """Create or update an OpenAI-compatible provider entry."""
@@ -58,6 +63,7 @@ def setup_command(
         api_key_env=api_key_env,
         models=(model,),
         default_model=model,
+        timeout_seconds=timeout_seconds,
     )
     updated = upsert_openai_compatible_provider(settings, provider, set_default=set_default)
     path = save_provider_settings(updated)
@@ -93,6 +99,13 @@ def main(
         str,
         typer.Option("--api-key-env", help="API key environment variable for `tau setup`."),
     ] = "OPENAI_API_KEY",
+    setup_timeout_seconds: Annotated[
+        float,
+        typer.Option(
+            "--timeout-seconds",
+            help="HTTP timeout in seconds for `tau setup` provider requests.",
+        ),
+    ] = DEFAULT_OPENAI_COMPATIBLE_TIMEOUT_SECONDS,
     setup_default: Annotated[
         bool,
         typer.Option("--set-default/--no-set-default", help="Make setup provider the default."),
@@ -147,6 +160,7 @@ def main(
             base_url=setup_base_url,
             api_key_env=setup_api_key_env,
             model=model or DEFAULT_MODEL,
+            timeout_seconds=setup_timeout_seconds,
             set_default=setup_default,
         )
         raise typer.Exit()
@@ -215,7 +229,8 @@ def render_provider_settings(settings: ProviderSettings) -> None:
         models = ",".join(provider.models)
         typer.echo(
             f"{marker}\t{provider.name}\topenai-compatible\t"
-            f"{provider.default_model}\t{models}\t{provider.api_key_env}\t{provider.base_url}"
+            f"{provider.default_model}\t{models}\t{provider.api_key_env}\t"
+            f"{provider.base_url}\t{provider.timeout_seconds:g}s"
         )
 
 

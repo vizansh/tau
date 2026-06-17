@@ -20,6 +20,12 @@ Optionally set a custom compatible endpoint:
 export OPENAI_BASE_URL="https://api.openai.com/v1"
 ```
 
+Optionally tune the HTTP timeout used by the default OpenAI-compatible provider:
+
+```bash
+export OPENAI_TIMEOUT_SECONDS="120"
+```
+
 The provider uses `/chat/completions` with streaming enabled.
 
 ## Durable Provider Config
@@ -42,9 +48,13 @@ Create or update a provider:
 tau --provider local \
   --base-url http://localhost:11434/v1 \
   --api-key-env LOCAL_API_KEY \
+  --timeout-seconds 120 \
   --model qwen \
   setup
 ```
+
+Provider entries can also include `timeout_seconds` in `~/.tau/providers.json`.
+The value must be greater than zero.
 
 Run Tau with a configured provider:
 

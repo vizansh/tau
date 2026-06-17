@@ -48,11 +48,41 @@ async def test_fake_provider_replays_scripted_events() -> None:
 def test_openai_compatible_config_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setenv("OPENAI_BASE_URL", "https://example.test/v1/")
+    monkeypatch.setenv("OPENAI_TIMEOUT_SECONDS", "12.5")
 
     config = openai_compatible_config_from_env()
 
     assert config.api_key == "test-key"
     assert config.base_url == "https://example.test/v1"
+    assert config.timeout_seconds == 12.5
+
+
+def test_openai_compatible_config_from_env_rejects_invalid_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_TIMEOUT_SECONDS", "0")
+
+    with pytest.raises(RuntimeError, match="greater than 0"):
+        openai_compatible_config_from_env()
+
+
+@pytest.mark.anyio
+async def test_openai_compatible_provider_uses_configured_timeout() -> None:
+    provider = OpenAICompatibleProvider(
+        OpenAICompatibleConfig(
+            api_key="test-key",
+            base_url="https://example.test/v1",
+            timeout_seconds=7.5,
+        )
+    )
+    try:
+        client = provider._get_client()
+
+        assert client.timeout.connect == 7.5
+        assert client.timeout.read == 7.5
+    finally:
+        await provider.aclose()
 
 
 @pytest.mark.anyio

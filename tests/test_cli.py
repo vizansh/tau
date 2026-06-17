@@ -348,6 +348,8 @@ def test_setup_command_writes_provider_settings(
             "http://localhost:11434/v1/",
             "--api-key-env",
             "LOCAL_API_KEY",
+            "--timeout-seconds",
+            "120",
             "--model",
             "qwen",
             "setup",
@@ -362,6 +364,7 @@ def test_setup_command_writes_provider_settings(
     assert provider.base_url == "http://localhost:11434/v1"
     assert provider.api_key_env == "LOCAL_API_KEY"
     assert provider.default_model == "qwen"
+    assert provider.timeout_seconds == 120
 
 
 def test_setup_command_warns_when_api_key_env_is_missing(

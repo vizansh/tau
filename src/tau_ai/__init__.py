@@ -1,6 +1,10 @@
 """Provider and model streaming layer for Tau."""
 
-from tau_ai.env import OpenAICompatibleConfig, openai_compatible_config_from_env
+from tau_ai.env import (
+    DEFAULT_OPENAI_COMPATIBLE_TIMEOUT_SECONDS,
+    OpenAICompatibleConfig,
+    openai_compatible_config_from_env,
+)
 from tau_ai.events import (
     ProviderErrorEvent,
     ProviderEvent,
@@ -15,6 +19,7 @@ from tau_ai.provider import CancellationToken, ModelProvider
 
 __all__ = [
     "CancellationToken",
+    "DEFAULT_OPENAI_COMPATIBLE_TIMEOUT_SECONDS",
     "FakeProvider",
     "ModelProvider",
     "OpenAICompatibleConfig",
