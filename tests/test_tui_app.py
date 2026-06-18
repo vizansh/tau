@@ -127,9 +127,8 @@ def test_session_sidebar_renders_session_metadata() -> None:
     assert "fake-model" in output
     assert "thinking" in output
     assert "medium" in output
-    assert "location" in output
-    assert "/workspace/project" in output
-    assert "branch" in output
+    assert "location" not in output
+    assert "branch" not in output
     assert "tools" in output
     assert "read" in output
     assert "skills" in output
@@ -151,12 +150,10 @@ def test_compact_session_info_renders_sidebar_facts() -> None:
     console.print(render_compact_session_info(FakeSession()))
 
     output = console.export_text()
-    assert "context 12%" in output
-    assert "provider openai" in output
-    assert "model fake-model" in output
-    assert "thinking medium" in output
-    assert "location /workspace/project" in output
-    assert "branch --" in output
+    assert "/workspace/project (--)" in output
+    assert "123/1000 context" in output
+    assert "openai:fake-model" in output
+    assert "(medium)" in output
 
 
 def test_compact_session_info_wraps_to_available_width() -> None:
@@ -297,7 +294,7 @@ async def test_tui_sidebar_is_visible_on_medium_windows() -> None:
         sidebar = app.query_one("#sidebar")
         compact_info = app.query_one("#compact-session-info")
         assert sidebar.display is True
-        assert compact_info.display is False
+        assert compact_info.display is True
         assert not app.has_class("-hide-sidebar")
 
 
@@ -345,7 +342,7 @@ async def test_tui_sidebar_visibility_updates_on_resize() -> None:
         sidebar = app.query_one("#sidebar")
         compact_info = app.query_one("#compact-session-info")
         assert sidebar.display is True
-        assert compact_info.display is False
+        assert compact_info.display is True
 
         await pilot.resize_terminal(width=80, height=30)
         await pilot.pause()
@@ -360,7 +357,7 @@ async def test_tui_sidebar_visibility_updates_on_resize() -> None:
         await pilot.resize_terminal(width=120, height=30)
         await pilot.pause()
         assert sidebar.display is True
-        assert compact_info.display is False
+        assert compact_info.display is True
 
 
 @pytest.mark.anyio

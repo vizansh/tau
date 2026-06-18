@@ -423,16 +423,11 @@ class TauTuiApp(App[None]):
     }
 
     #compact-session-info {
-        display: none;
         height: auto;
         max-height: 3;
         margin: 0 1 1 1;
         padding: 0 1;
         color: $tau-muted-text;
-    }
-
-    TauTuiApp.-hide-sidebar #compact-session-info {
-        display: block;
     }
 
     #autocomplete {

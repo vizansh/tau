@@ -159,8 +159,6 @@ def render_session_sidebar(
     metadata.add_row("provider", session.provider_name)
     metadata.add_row("model", session.model)
     metadata.add_row("thinking", _thinking_level(session))
-    metadata.add_row("location", _short_path(session.cwd))
-    metadata.add_row("branch", _git_branch(session.cwd))
     metadata.add_row("tools", str(len(session.tools)))
     metadata.add_row("skills", str(len(session.skills)))
 
@@ -214,23 +212,26 @@ def render_compact_session_info(
     session: SessionSummarySource,
     *,
     theme: TuiTheme = TAU_DARK_THEME,
-) -> Text:
-    """Render the session facts needed when the sidebar is hidden."""
-    facts = (
-        ("context", _context_percentage(session)),
-        ("provider", session.provider_name),
-        ("model", session.model),
-        ("thinking", _thinking_level(session)),
-        ("location", _short_path(session.cwd)),
-        ("branch", _git_branch(session.cwd)),
+) -> RenderableType:
+    """Render the session facts below the prompt."""
+    left = Text(
+        f"{_short_path(session.cwd)} ({_git_branch(session.cwd)})",
+        style=theme.prompt_text,
+        overflow="fold",
+        no_wrap=False,
     )
-    text = Text(style=theme.muted_text, overflow="fold", no_wrap=False)
-    for index, (label, value) in enumerate(facts):
-        if index:
-            text.append("  ")
-        text.append(f"{label} ", style=theme.completion_description)
-        text.append(value, style=theme.prompt_text)
-    return text
+    right = Text(style=theme.muted_text, overflow="fold", no_wrap=False, justify="right")
+    right.append(_context_usage(session), style=theme.completion_description)
+    right.append("  ")
+    right.append(f"{session.provider_name}:{session.model}", style=theme.prompt_text)
+    right.append(" ")
+    right.append(f"({_thinking_level(session)})", style=theme.completion_description)
+
+    table = Table.grid(expand=True)
+    table.add_column(ratio=1)
+    table.add_column(ratio=1, justify="right")
+    table.add_row(left, right)
+    return table
 
 
 def render_chat_item(
@@ -379,6 +380,13 @@ def _context_percentage(session: SessionSummarySource) -> str:
         return "--"
     percentage = min(round((session.context_token_estimate / threshold) * 100), 999)
     return f"{percentage}%"
+
+
+def _context_usage(session: SessionSummarySource) -> str:
+    threshold = session.auto_compact_token_threshold
+    if threshold is None or threshold <= 0:
+        return f"{session.context_token_estimate} context"
+    return f"{session.context_token_estimate}/{threshold} context"
 
 
 def _thinking_level(session: SessionSummarySource) -> str:
