@@ -312,6 +312,85 @@ class LoginProviderPickerScreen(ModalScreen[str | None]):
         self.dismiss(None)
 
 
+class ModelPickerScreen(ModalScreen[str | None]):
+    """Model picker for the active TUI provider."""
+
+    BINDINGS: ClassVar[list[BindingEntry]] = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("up", "cursor_up", "Up", show=False),
+        Binding("down", "cursor_down", "Down", show=False),
+        Binding("enter", "select_cursor", "Select", show=False),
+    ]
+
+    def __init__(
+        self,
+        models: Sequence[str],
+        *,
+        current_model: str,
+        provider_name: str,
+        theme: TuiTheme,
+    ) -> None:
+        super().__init__()
+        self.models = tuple(dict.fromkeys(models))
+        self.current_model = current_model
+        self.provider_name = provider_name
+        self.theme = theme
+
+    def compose(self) -> ComposeResult:
+        """Compose the model picker."""
+        with Vertical(id="model-picker"):
+            yield Static(f"Model: {self.provider_name}", id="model-picker-title")
+            yield ListView(
+                *[
+                    ListItem(Label(_model_picker_label(model, self.current_model), markup=False))
+                    for model in self.models
+                ],
+                id="model-picker-list",
+            )
+            yield Static("Enter selects - Escape closes", id="model-picker-help")
+
+    def on_mount(self) -> None:
+        """Focus the model list."""
+        model_list = self.query_one("#model-picker-list", ListView)
+        try:
+            model_list.index = self.models.index(self.current_model)
+        except ValueError:
+            model_list.index = 0
+        model_list.focus()
+
+    def on_key(self, event: Key) -> None:
+        """Route model picker keys to the list."""
+        if event.key == "up":
+            event.stop()
+            self.action_cursor_up()
+        elif event.key == "down":
+            event.stop()
+            self.action_cursor_down()
+        elif event.key == "enter":
+            event.stop()
+            self.action_select_cursor()
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        """Dismiss with the selected model name."""
+        self.dismiss(self.models[event.index])
+
+    def action_cursor_up(self) -> None:
+        """Move to the previous model."""
+        self.query_one("#model-picker-list", ListView).action_cursor_up()
+
+    def action_cursor_down(self) -> None:
+        """Move to the next model."""
+        self.query_one("#model-picker-list", ListView).action_cursor_down()
+
+    def action_select_cursor(self) -> None:
+        """Select the highlighted model."""
+        self.query_one("#model-picker-list", ListView).action_select_cursor()
+
+    def action_cancel(self) -> None:
+        """Close without selecting a model."""
+        self.dismiss(None)
+
+
 class LoginScreen(ModalScreen[str | None]):
     """Password prompt for saving a provider API key."""
 
@@ -508,11 +587,13 @@ class TauTuiApp(App[None]):
         color: $tau-muted-text;
     }
 
-    LoginProviderPickerScreen {
+    LoginProviderPickerScreen,
+    ModelPickerScreen {
         align: center middle;
     }
 
-    #login-provider-picker {
+    #login-provider-picker,
+    #model-picker {
         width: 76;
         max-width: 90%;
         height: auto;
@@ -522,21 +603,24 @@ class TauTuiApp(App[None]):
         border: tall $tau-border;
     }
 
-    #login-provider-title {
+    #login-provider-title,
+    #model-picker-title {
         height: 1;
         color: $tau-chrome-text;
         text-style: bold;
         margin-bottom: 1;
     }
 
-    #login-provider-list {
+    #login-provider-list,
+    #model-picker-list {
         height: auto;
         max-height: 12;
         background: $tau-transcript-background;
         border: tall $tau-border;
     }
 
-    #login-provider-help {
+    #login-provider-help,
+    #model-picker-help {
         height: 1;
         margin-top: 1;
         color: $tau-muted-text;
@@ -684,6 +768,8 @@ class TauTuiApp(App[None]):
                 self._open_login_picker()
             if command.login_provider is not None:
                 self._open_login(command.login_provider)
+            if command.model_picker_requested:
+                self._open_model_picker()
             if command.message:
                 self._show_command_message(text, command.message)
             self._refresh()
@@ -721,7 +807,7 @@ class TauTuiApp(App[None]):
 
     def action_accept_completion(self) -> None:
         """Accept the currently selected prompt completion."""
-        if isinstance(self.screen, LoginProviderPickerScreen):
+        if isinstance(self.screen, LoginProviderPickerScreen | ModelPickerScreen):
             self.screen.action_select_cursor()
             return
         prompt = self.query_one("#prompt", Input)
@@ -735,7 +821,7 @@ class TauTuiApp(App[None]):
 
     def action_completion_next(self) -> None:
         """Select the next prompt completion."""
-        if isinstance(self.screen, LoginProviderPickerScreen):
+        if isinstance(self.screen, LoginProviderPickerScreen | ModelPickerScreen):
             self.screen.action_cursor_down()
             return
         if not self._completion_state.items:
@@ -745,7 +831,7 @@ class TauTuiApp(App[None]):
 
     def action_completion_previous(self) -> None:
         """Select the previous prompt completion."""
-        if isinstance(self.screen, LoginProviderPickerScreen):
+        if isinstance(self.screen, LoginProviderPickerScreen | ModelPickerScreen):
             self.screen.action_cursor_up()
             return
         if not self._completion_state.items:
@@ -849,6 +935,32 @@ class TauTuiApp(App[None]):
         self._notify(f"Saved login for {entry.display_name}.")
         self._refresh()
 
+    def _open_model_picker(self) -> None:
+        models = tuple(self.session.available_models)
+        if not models:
+            self._notify("No models are configured for this provider.", severity="warning")
+            return
+        self.push_screen(
+            ModelPickerScreen(
+                models,
+                current_model=self.session.model,
+                provider_name=self.session.provider_name,
+                theme=self.tui_settings.resolved_theme,
+            ),
+            callback=self._handle_model_picker_result,
+        )
+
+    def _handle_model_picker_result(self, model: str | None) -> None:
+        if model is None:
+            return
+        try:
+            self.session.set_model(model)
+        except Exception as exc:  # noqa: BLE001 - surface model switch failures in the TUI
+            self._notify(f"Could not switch model: {exc}", severity="error")
+            return
+        self._notify(f"Current model: {model}")
+        self._refresh()
+
     def _notify(
         self,
         message: str,
@@ -935,6 +1047,11 @@ def _session_picker_label(record: SessionCompletionRecord) -> str:
 
 def _login_provider_label(provider: ProviderCatalogEntry) -> str:
     return f"{provider.display_name}\n  {provider.name}"
+
+
+def _model_picker_label(model: str, current_model: str) -> str:
+    marker = "* " if model == current_model else "  "
+    return f"{marker}{model}"
 
 
 def _command_output_title(command_text: str) -> str:

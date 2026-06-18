@@ -28,6 +28,7 @@ from tau_coding.tui.app import (
     CommandOutputScreen,
     LoginProviderPickerScreen,
     LoginScreen,
+    ModelPickerScreen,
     SessionPickerScreen,
     TauTuiApp,
 )
@@ -51,7 +52,7 @@ class FakeSession:
         self.cwd = Path("/workspace/project")
         self.provider_name = "openai"
         self.model = "fake-model"
-        self.available_models = ("fake-model",)
+        self.available_models = ("fake-model", "other-model")
         self.available_providers = ("openai",)
         self.tools = tuple(create_coding_tools(cwd=self.cwd))
         self.skills = (Skill(name="review", path=self.cwd / "review.md", content="Review code"),)
@@ -85,6 +86,8 @@ class FakeSession:
             return CommandResult(handled=True, login_picker_requested=True)
         if text == "/login openai":
             return CommandResult(handled=True, login_provider="openai")
+        if text == "/model":
+            return CommandResult(handled=True, model_picker_requested=True)
         return CommandResult(handled=False)
 
     def set_model(self, model: str) -> None:
@@ -808,6 +811,30 @@ async def test_tui_login_opens_provider_picker() -> None:
 
         assert isinstance(app.screen, LoginScreen)
         assert app.screen.provider.name == "anthropic"
+
+
+@pytest.mark.anyio
+async def test_tui_model_opens_interactive_picker() -> None:
+    session = FakeSession()
+    app = TauTuiApp(session)
+
+    async with app.run_test() as pilot:
+        prompt = app.query_one("#prompt")
+        prompt.value = "/model"
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ModelPickerScreen)
+        model_list = app.screen.query_one("#model-picker-list", ListView)
+        labels = [str(item.query_one(Label).render()) for item in model_list.children]
+        assert labels == ["* fake-model", "  other-model"]
+
+        await pilot.press("down")
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert session.model == "other-model"
+    assert session.prompt_texts == []
 
 
 @pytest.mark.anyio

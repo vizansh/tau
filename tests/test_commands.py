@@ -101,16 +101,14 @@ def test_status_includes_session_details(tmp_path: Path) -> None:
     assert "Session: session-1" in result.message
 
 
-def test_model_command_lists_and_switches_models(tmp_path: Path) -> None:
+def test_model_command_requests_picker_and_switches_models(tmp_path: Path) -> None:
     session = FakeSession(tmp_path)
     registry = create_default_command_registry()
 
     list_result = registry.execute(session, "/model")
     switch_result = registry.execute(session, "/model other-model")
 
-    assert list_result.message is not None
-    assert "Current model: fake-model" in list_result.message
-    assert "Available models: fake-model, other-model" in list_result.message
+    assert list_result.model_picker_requested is True
     assert switch_result.message == "Current model: other-model"
     assert session.model == "other-model"
 

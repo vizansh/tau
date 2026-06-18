@@ -157,6 +157,13 @@ Custom TUIs can reuse this helper for Pi-style slash-command completion,
 Use `CompletionOption` when a picker row should apply one value but show richer
 metadata such as a session title, model, or working directory.
 
+The command layer also exposes picker requests for full-screen or modal flows.
+When `session.handle_command("/model")` returns
+`CommandResult(model_picker_requested=True)`, show an interactive list backed by
+`session.available_models`; when the user selects a model, call
+`session.set_model(model)`. This keeps the picker as frontend policy while the
+agent session remains the source of truth for the active model.
+
 When the user presses `Enter` with a highlighted completion that would change
 the prompt text, apply the completion and keep focus in the input instead of
 submitting immediately. If the highlighted completion would not change the text,

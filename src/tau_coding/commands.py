@@ -77,6 +77,7 @@ class CommandResult:
     resume_session_id: str | None = None
     login_picker_requested: bool = False
     login_provider: str | None = None
+    model_picker_requested: bool = False
     message: str | None = None
 
 
@@ -452,11 +453,7 @@ def _model_command(context: CommandContext) -> CommandResult:
         context.session.set_model(model)
         return CommandResult(handled=True, message=f"Current model: {model}")
 
-    models = ", ".join(context.session.available_models) or "none"
-    return CommandResult(
-        handled=True,
-        message=f"Current model: {context.session.model}\nAvailable models: {models}",
-    )
+    return CommandResult(handled=True, model_picker_requested=True)
 
 
 def _provider_command(context: CommandContext) -> CommandResult:
