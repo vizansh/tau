@@ -61,8 +61,6 @@ class CommandSession(Protocol):
 
     def set_model(self, model: str) -> None: ...
 
-    def set_provider(self, provider_name: str) -> None: ...
-
     def reload(self) -> None: ...
 
 
@@ -262,16 +260,8 @@ def create_default_command_registry() -> CommandRegistry:
         SlashCommand(
             name="model",
             usage="/model",
-            description="Show model switching status.",
+            description="Choose the active model.",
             handler=_model_command,
-        )
-    )
-    registry.register(
-        SlashCommand(
-            name="provider",
-            usage="/provider [name]",
-            description="Show or switch the active provider.",
-            handler=_provider_command,
         )
     )
     registry.register(
@@ -454,39 +444,6 @@ def _model_command(context: CommandContext) -> CommandResult:
         return CommandResult(handled=True, message=f"Current model: {model}")
 
     return CommandResult(handled=True, model_picker_requested=True)
-
-
-def _provider_command(context: CommandContext) -> CommandResult:
-    if context.args:
-        provider_name = context.args.strip()
-        available_providers = set(context.session.available_providers)
-        if available_providers and provider_name not in available_providers:
-            providers = ", ".join(sorted(available_providers))
-            return CommandResult(
-                handled=True,
-                message=f"Unknown provider: {provider_name}\nAvailable providers: {providers}",
-            )
-        try:
-            context.session.set_provider(provider_name)
-        except ValueError as exc:
-            return CommandResult(handled=True, message=f"Could not switch provider: {exc}")
-        return CommandResult(
-            handled=True,
-            message=(
-                f"Current provider: {context.session.provider_name}\n"
-                f"Current model: {context.session.model}"
-            ),
-        )
-
-    providers = ", ".join(context.session.available_providers) or "none"
-    return CommandResult(
-        handled=True,
-        message=(
-            f"Current provider: {context.session.provider_name}\n"
-            f"Available providers: {providers}\n"
-            "Switch providers with /provider <name>."
-        ),
-    )
 
 
 def _login_command(context: CommandContext) -> CommandResult:

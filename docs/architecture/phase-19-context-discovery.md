@@ -69,7 +69,7 @@ Tau now has:
 - prompt templates
 - project context files
 - resource diagnostics
-- provider settings used by `/provider` and `/model`
+- provider settings used by `/login` and `/model`
 
 When the session is using Tau's generated system prompt, reload also rebuilds
 the harness system string so the next model request sees the updated resources

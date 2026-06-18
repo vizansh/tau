@@ -91,7 +91,7 @@ def test_model_argument_completion_preserves_existing_text() -> None:
     assert state.selected.apply("/model fak continue") == "/model fake-model continue"
 
 
-def test_provider_argument_completion_uses_available_providers() -> None:
+def test_provider_argument_completion_is_not_available() -> None:
     state = build_completion_state(
         "/provider lo",
         command_registry=create_default_command_registry(),
@@ -100,7 +100,7 @@ def test_provider_argument_completion_uses_available_providers() -> None:
         provider_names=("openai", "local"),
     )
 
-    assert [item.display for item in state.items] == ["local"]
+    assert state.items == ()
 
 
 def test_login_argument_completion_uses_available_providers() -> None:

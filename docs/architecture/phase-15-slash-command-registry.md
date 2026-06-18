@@ -43,8 +43,8 @@ The default registry includes:
 - `/skill` — explain `/skill:<name>` usage
 - `/sessions` — list indexed sessions when a session manager is available
 - `/resume` — request an indexed session resume
-- `/model` — show the current model and note that switching is future work
-- `/provider` — note that provider switching is future work
+- `/model` — choose or switch the current model
+- `/login` — add or refresh a built-in provider login
 
 Aliases include `/q`, `/quit`, and `/?`.
 

@@ -31,7 +31,12 @@ from tau_coding.provider_config import (
     upsert_provider,
 )
 from tau_coding.provider_runtime import create_model_provider
-from tau_coding.session import CodingSession, CodingSessionConfig, jsonl_session_storage
+from tau_coding.session import (
+    CodingSession,
+    CodingSessionConfig,
+    ModelChoice,
+    jsonl_session_storage,
+)
 from tau_coding.session_manager import SessionManager
 from tau_coding.tui.adapter import TuiEventAdapter
 from tau_coding.tui.autocomplete import CompletionOption, CompletionState, build_completion_state
@@ -312,7 +317,7 @@ class LoginProviderPickerScreen(ModalScreen[str | None]):
         self.dismiss(None)
 
 
-class ModelPickerScreen(ModalScreen[str | None]):
+class ModelPickerScreen(ModalScreen[ModelChoice | None]):
     """Model picker for the active TUI provider."""
 
     BINDINGS: ClassVar[list[BindingEntry]] = [
@@ -324,14 +329,14 @@ class ModelPickerScreen(ModalScreen[str | None]):
 
     def __init__(
         self,
-        models: Sequence[str],
+        choices: Sequence[ModelChoice],
         *,
         current_model: str,
         provider_name: str,
         theme: TuiTheme,
     ) -> None:
         super().__init__()
-        self.models = tuple(dict.fromkeys(models))
+        self.choices = tuple(dict.fromkeys(choices))
         self.current_model = current_model
         self.provider_name = provider_name
         self.theme = theme
@@ -342,8 +347,17 @@ class ModelPickerScreen(ModalScreen[str | None]):
             yield Static(f"Model: {self.provider_name}", id="model-picker-title")
             yield ListView(
                 *[
-                    ListItem(Label(_model_picker_label(model, self.current_model), markup=False))
-                    for model in self.models
+                    ListItem(
+                        Label(
+                            _model_picker_label(
+                                choice,
+                                current_model=self.current_model,
+                                current_provider=self.provider_name,
+                            ),
+                            markup=False,
+                        )
+                    )
+                    for choice in self.choices
                 ],
                 id="model-picker-list",
             )
@@ -353,7 +367,9 @@ class ModelPickerScreen(ModalScreen[str | None]):
         """Focus the model list."""
         model_list = self.query_one("#model-picker-list", ListView)
         try:
-            model_list.index = self.models.index(self.current_model)
+            model_list.index = self.choices.index(
+                ModelChoice(provider_name=self.provider_name, model=self.current_model)
+            )
         except ValueError:
             model_list.index = 0
         model_list.focus()
@@ -372,7 +388,7 @@ class ModelPickerScreen(ModalScreen[str | None]):
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Dismiss with the selected model name."""
-        self.dismiss(self.models[event.index])
+        self.dismiss(self.choices[event.index])
 
     def action_cursor_up(self) -> None:
         """Move to the previous model."""
@@ -936,13 +952,23 @@ class TauTuiApp(App[None]):
         self._refresh()
 
     def _open_model_picker(self) -> None:
-        models = tuple(self.session.available_models)
-        if not models:
+        fallback_choices = (
+            ModelChoice(provider_name=self.session.provider_name, model=model)
+            for model in self.session.available_models
+        )
+        choices = tuple(
+            getattr(
+                self.session,
+                "available_model_choices",
+                fallback_choices,
+            )
+        )
+        if not choices:
             self._notify("No models are configured for this provider.", severity="warning")
             return
         self.push_screen(
             ModelPickerScreen(
-                models,
+                choices,
                 current_model=self.session.model,
                 provider_name=self.session.provider_name,
                 theme=self.tui_settings.resolved_theme,
@@ -950,15 +976,17 @@ class TauTuiApp(App[None]):
             callback=self._handle_model_picker_result,
         )
 
-    def _handle_model_picker_result(self, model: str | None) -> None:
-        if model is None:
+    def _handle_model_picker_result(self, choice: ModelChoice | None) -> None:
+        if choice is None:
             return
         try:
-            self.session.set_model(model)
+            if choice.provider_name != self.session.provider_name:
+                self.session.set_provider(choice.provider_name)
+            self.session.set_model(choice.model)
         except Exception as exc:  # noqa: BLE001 - surface model switch failures in the TUI
             self._notify(f"Could not switch model: {exc}", severity="error")
             return
-        self._notify(f"Current model: {model}")
+        self._notify(f"Current model: {choice.provider_name}:{choice.model}")
         self._refresh()
 
     def _notify(
@@ -1049,9 +1077,13 @@ def _login_provider_label(provider: ProviderCatalogEntry) -> str:
     return f"{provider.display_name}\n  {provider.name}"
 
 
-def _model_picker_label(model: str, current_model: str) -> str:
-    marker = "* " if model == current_model else "  "
-    return f"{marker}{model}"
+def _model_picker_label(
+    choice: ModelChoice, *, current_model: str, current_provider: str
+) -> str:
+    marker = "* " if (
+        choice.provider_name == current_provider and choice.model == current_model
+    ) else "  "
+    return f"{marker}{choice.provider_name}:{choice.model}"
 
 
 def _command_output_title(command_text: str) -> str:

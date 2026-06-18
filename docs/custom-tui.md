@@ -153,16 +153,18 @@ build_completion_state(
 ```
 
 Custom TUIs can reuse this helper for Pi-style slash-command completion,
-`/skill:` completion, and lightweight model/provider/session argument pickers.
+`/skill:` completion, and lightweight model/login/session argument pickers.
 Use `CompletionOption` when a picker row should apply one value but show richer
 metadata such as a session title, model, or working directory.
 
 The command layer also exposes picker requests for full-screen or modal flows.
 When `session.handle_command("/model")` returns
 `CommandResult(model_picker_requested=True)`, show an interactive list backed by
-`session.available_models`; when the user selects a model, call
-`session.set_model(model)`. This keeps the picker as frontend policy while the
-agent session remains the source of truth for the active model.
+`session.available_model_choices`. Each choice contains `provider_name` and
+`model`. When the user selects a model from another provider, call
+`session.set_provider(provider_name)` first, then `session.set_model(model)`.
+This keeps the picker as frontend policy while the agent session remains the
+source of truth for the active provider and model.
 
 When the user presses `Enter` with a highlighted completion that would change
 the prompt text, apply the completion and keep focus in the input instead of
@@ -174,6 +176,7 @@ A custom picker UI can also read the same data directly:
 - `session.command_registry.list_commands()`
 - `session.skills`
 - `session.prompt_templates`
+- `session.available_model_choices`
 - `session.available_models`
 - `session.available_providers`
 - `session.session_manager`
@@ -269,5 +272,5 @@ A custom TUI should prove these behaviors before it is considered compatible:
 - Cancellation calls `session.cancel()`.
 - Large tool results render as compact previews by default.
 - Keybindings and themes are owned by the frontend and do not leak into `tau_agent`.
-- Model/provider choices come from the session, not hardcoded UI lists.
+- Provider/model choices come from the session, not hardcoded UI lists.
 - Session persistence is handled through `CodingSession` and `SessionManager`.

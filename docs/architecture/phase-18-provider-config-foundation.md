@@ -116,22 +116,21 @@ any partial stream content has been emitted.
 
 ## Slash commands
 
-Slash commands now expose the active provider/model configuration:
+Slash commands expose the active model configuration:
 
 ```text
-/provider
-/provider <name>
 /model
 /model <name>
+/login
 ```
 
 `/model <name>` switches the active model for future turns in the running
 process when the model is known for the active provider.
 
-`/provider <name>` switches the active provider for future turns in the running
-process and resets the active model to that provider's configured default. The
-provider must already exist in `~/.tau/providers.json`, and its API key must be
-available through the configured environment variable.
+In the TUI, `/model` opens an interactive picker. The picker can include models
+from every configured provider, so selecting a model can switch the active
+provider behind the scenes. `/login` is the TUI path for adding or refreshing a
+built-in provider.
 
 ## Boundary
 
@@ -168,4 +167,4 @@ The tests verify:
 - configured API key environment variables
 - CLI provider/model forwarding
 - TUI startup selection
-- `/provider` and `/model` command behavior
+- `/login` and `/model` command behavior

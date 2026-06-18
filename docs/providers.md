@@ -94,15 +94,20 @@ tau "summarize this project" --provider local
 Inside the TUI:
 
 ```text
-/provider
-/provider local
 /model
 /model qwen
+/login
 /reload
 ```
 
-`/reload` refreshes provider settings for future command use. Switching the
-active runtime provider is still done explicitly with `/provider <name>`.
+`/model` opens the interactive model picker. The picker includes models from
+configured providers, so selecting a model can also switch the active runtime
+provider. `/login` adds or refreshes a built-in provider, and `/reload`
+refreshes provider settings for future command use.
+
+When Tau loads `~/.tau/providers.json`, it merges the current built-in model
+catalog into built-in provider entries such as Hugging Face. Custom models and
+headers in the file are preserved.
 
 ## Fake provider
 

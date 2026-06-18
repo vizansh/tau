@@ -1,6 +1,6 @@
 """Durable provider configuration for Tau coding sessions."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from json import dumps, loads
 from os import environ
 from pathlib import Path
@@ -200,7 +200,7 @@ def load_provider_settings(paths: TauPaths | None = None) -> ProviderSettings:
     raw = loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ProviderConfigError("Provider settings must be a JSON object")
-    return provider_settings_from_json(raw)
+    return _with_builtin_catalog_models(provider_settings_from_json(raw))
 
 
 def save_provider_settings(
@@ -231,12 +231,48 @@ def upsert_provider(
 ) -> ProviderSettings:
     """Return settings with a provider added or replaced."""
     providers_by_name = {item.name: item for item in settings.providers}
+    if provider.name in providers_by_name:
+        provider = _merge_provider_config(providers_by_name[provider.name], provider)
     providers_by_name[provider.name] = provider
     default_provider = provider.name if set_default else settings.default_provider
     providers = tuple(providers_by_name[name] for name in sorted(providers_by_name))
     updated = ProviderSettings(default_provider=default_provider, providers=providers)
     updated.get_provider(default_provider)
     return updated
+
+
+def _with_builtin_catalog_models(settings: ProviderSettings) -> ProviderSettings:
+    """Return settings with current built-in model catalogs merged in."""
+    builtin_configs = {
+        provider.name: provider
+        for provider in (
+            provider_config_from_catalog_entry(entry.name) for entry in BUILTIN_PROVIDER_CATALOG
+        )
+    }
+    providers = tuple(
+        _merge_provider_config(provider, builtin_configs[provider.name])
+        if provider.name in builtin_configs
+        else provider
+        for provider in settings.providers
+    )
+    return ProviderSettings(default_provider=settings.default_provider, providers=providers)
+
+
+def _merge_provider_config(existing: ProviderConfig, incoming: ProviderConfig) -> ProviderConfig:
+    """Merge a replacement provider config without losing local customizations."""
+    if type(existing) is not type(incoming):
+        return incoming
+    models = _unique_strings((*incoming.models, *existing.models))
+    default_model = (
+        incoming.default_model if incoming.default_model in models else existing.default_model
+    )
+    headers = {**existing.headers, **incoming.headers}
+    return replace(incoming, models=models, default_model=default_model, headers=headers)
+
+
+def _unique_strings(values: tuple[str, ...]) -> tuple[str, ...]:
+    """Return values with duplicates removed while preserving order."""
+    return tuple(dict.fromkeys(values))
 
 
 def provider_settings_from_json(data: dict[str, Any]) -> ProviderSettings:

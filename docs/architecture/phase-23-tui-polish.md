@@ -52,8 +52,8 @@ dismissible modal. This keeps command reference material out of the agent
 conversation while preserving access to the information.
 
 The same completion engine now suggests available values for `/model` and
-`/provider` arguments. This gives the prompt a lightweight picker for model and
-provider switching without adding a separate modal UI.
+`/login` arguments. `/model` can also open a modal picker for configured
+provider/model choices, while `/login` remains the path for adding providers.
 
 The prompt also suggests indexed session ids for `/resume <session-id>`, giving
 the TUI a lightweight session picker path through the same completion UI.

@@ -3,6 +3,7 @@ from pathlib import Path
 from tau_coding.commands import CommandRegistry, SlashCommand, create_default_command_registry
 from tau_coding.paths import TauPaths
 from tau_coding.resources import ResourceDiagnostic
+from tau_coding.session import ModelChoice
 from tau_coding.session_manager import SessionManager
 from tau_coding.skills import Skill
 from tau_coding.system_prompt import ProjectContextFile
@@ -15,6 +16,11 @@ class FakeSession:
         self.provider_name = "openai"
         self.model = "fake-model"
         self.available_models = ("fake-model", "other-model")
+        self.available_model_choices = (
+            ModelChoice(provider_name="openai", model="fake-model"),
+            ModelChoice(provider_name="openai", model="other-model"),
+            ModelChoice(provider_name="local", model="local-model"),
+        )
         self.available_providers = ("openai", "local")
         self.tools = tuple(create_coding_tools(cwd=tmp_path))
         self.skills = (
@@ -123,35 +129,11 @@ def test_model_command_rejects_unknown_model(tmp_path: Path) -> None:
     assert session.model == "fake-model"
 
 
-def test_provider_command_lists_configured_providers(tmp_path: Path) -> None:
+def test_provider_command_is_not_registered(tmp_path: Path) -> None:
     result = create_default_command_registry().execute(FakeSession(tmp_path), "/provider")
 
-    assert result.message is not None
-    assert "Current provider: openai" in result.message
-    assert "Available providers: openai, local" in result.message
-
-
-def test_provider_command_switches_provider(tmp_path: Path) -> None:
-    session = FakeSession(tmp_path)
-
-    result = create_default_command_registry().execute(session, "/provider local")
-
-    assert result.message is not None
-    assert "Current provider: local" in result.message
-    assert "Current model: local-model" in result.message
-    assert session.provider_name == "local"
-    assert session.model == "local-model"
-
-
-def test_provider_command_rejects_unknown_provider(tmp_path: Path) -> None:
-    session = FakeSession(tmp_path)
-
-    result = create_default_command_registry().execute(session, "/provider missing")
-
-    assert result.message is not None
-    assert "Unknown provider: missing" in result.message
-    assert "Available providers: local, openai" in result.message
-    assert session.provider_name == "openai"
+    assert result.handled is True
+    assert result.message == "Unknown command: /provider"
 
 
 def test_login_command_requests_provider_picker(tmp_path: Path) -> None:

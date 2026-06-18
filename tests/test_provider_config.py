@@ -259,6 +259,40 @@ def test_provider_settings_from_json_loads_headers() -> None:
     assert provider.headers == {"X-HF-Bill-To": "my-org"}
 
 
+def test_load_provider_settings_merges_builtin_model_catalog(tmp_path: Path) -> None:
+    tau_home = tmp_path / ".tau"
+    tau_home.mkdir()
+    (tau_home / "providers.json").write_text(
+        """
+{
+  "default_provider": "huggingface",
+  "providers": [
+    {
+      "type": "openai-compatible",
+      "name": "huggingface",
+      "base_url": "https://router.huggingface.co/v1",
+      "api_key_env": "HF_TOKEN",
+      "credential_name": "huggingface",
+      "models": ["Qwen/Qwen3-Coder", "custom/coder"],
+      "default_model": "Qwen/Qwen3-Coder",
+      "headers": {"X-HF-Bill-To": "my-org"}
+    }
+  ]
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    settings = load_provider_settings(TauPaths(home=tau_home))
+
+    provider = settings.get_provider("huggingface")
+    assert provider.default_model == "Qwen/Qwen3-Coder"
+    assert provider.headers == {"X-HF-Bill-To": "my-org"}
+    assert "MiniMaxAI/MiniMax-M3" in provider.models
+    assert "moonshotai/Kimi-K2.7-Code" in provider.models
+    assert "custom/coder" in provider.models
+
+
 def test_provider_settings_from_json_rejects_invalid_headers() -> None:
     with pytest.raises(ProviderConfigError, match="string object"):
         provider_settings_from_json(

@@ -19,6 +19,7 @@ from tau_agent import (
 )
 from tau_coding.commands import CommandResult
 from tau_coding.provider_config import OpenAICompatibleProviderConfig, ProviderSettings
+from tau_coding.session import ModelChoice
 from tau_coding.session_manager import CodingSessionRecord
 from tau_coding.skills import Skill
 from tau_coding.system_prompt import ProjectContextFile
@@ -53,6 +54,11 @@ class FakeSession:
         self.provider_name = "openai"
         self.model = "fake-model"
         self.available_models = ("fake-model", "other-model")
+        self.available_model_choices = (
+            ModelChoice(provider_name="openai", model="fake-model"),
+            ModelChoice(provider_name="openai", model="other-model"),
+            ModelChoice(provider_name="local", model="local-model"),
+        )
         self.available_providers = ("openai",)
         self.tools = tuple(create_coding_tools(cwd=self.cwd))
         self.skills = (Skill(name="review", path=self.cwd / "review.md", content="Review code"),)
@@ -95,6 +101,8 @@ class FakeSession:
 
     def set_provider(self, provider_name: str) -> None:
         self.provider_name = provider_name
+        if provider_name == "local":
+            self.available_models = ("local-model",)
 
     def reload(self) -> None:
         self.reload_count += 1
@@ -827,13 +835,19 @@ async def test_tui_model_opens_interactive_picker() -> None:
         assert isinstance(app.screen, ModelPickerScreen)
         model_list = app.screen.query_one("#model-picker-list", ListView)
         labels = [str(item.query_one(Label).render()) for item in model_list.children]
-        assert labels == ["* fake-model", "  other-model"]
+        assert labels == [
+            "* openai:fake-model",
+            "  openai:other-model",
+            "  local:local-model",
+        ]
 
+        await pilot.press("down")
         await pilot.press("down")
         await pilot.press("enter")
         await pilot.pause()
 
-    assert session.model == "other-model"
+    assert session.provider_name == "local"
+    assert session.model == "local-model"
     assert session.prompt_texts == []
 
 

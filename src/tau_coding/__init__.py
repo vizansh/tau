@@ -64,6 +64,7 @@ from tau_coding.resources import ResourceDiagnostic, ResourceError, TauResourceP
 from tau_coding.session import (
     CodingSession,
     CodingSessionConfig,
+    ModelChoice,
     default_session_path,
     jsonl_session_storage,
 )
@@ -114,6 +115,7 @@ __all__ = [
     "EventRenderer",
     "FinalTextRenderer",
     "JsonEventRenderer",
+    "ModelChoice",
     "AnthropicProviderConfig",
     "OpenAICompatibleProviderConfig",
     "PrintOutputMode",

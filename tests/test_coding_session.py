@@ -521,20 +521,20 @@ async def test_session_switches_configured_provider(
         )
     )
 
-    result = session.handle_command("/provider local")
+    session.set_provider("local")
 
-    assert result.message is not None
-    assert "Current provider: local" in result.message
-    assert "Current model: qwen" in result.message
     assert session.provider_name == "local"
     assert session.model == "qwen"
     assert session.available_models == ("qwen", "llama")
+    assert [(choice.provider_name, choice.model) for choice in session.available_model_choices] == [
+        ("openai", "gpt-5.5"),
+        ("local", "qwen"),
+        ("local", "llama"),
+    ]
     assert len(created_providers) == 1
 
-    result = session.handle_command("/provider local")
+    session.set_provider("local")
 
-    assert result.message is not None
-    assert "Current provider: local" in result.message
     assert len(created_providers) == 2
 
     await session.aclose()

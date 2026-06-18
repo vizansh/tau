@@ -90,10 +90,9 @@ tau --provider local --model qwen --timeout-seconds 120 --max-retries 2 setup
 Inside the TUI:
 
 ```text
-/provider
-/provider local
 /model
 /model qwen
+/login
 ```
 
 ## TUI Settings

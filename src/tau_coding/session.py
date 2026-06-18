@@ -49,6 +49,14 @@ from tau_coding.tools import create_coding_tools
 
 
 @dataclass(frozen=True, slots=True)
+class ModelChoice:
+    """A selectable model and the provider that serves it."""
+
+    provider_name: str
+    model: str
+
+
+@dataclass(frozen=True, slots=True)
 class SessionResources:
     """Tau-owned resources loaded around a coding session."""
 
@@ -203,6 +211,17 @@ class CodingSession:
         except ProviderConfigError:
             return (self.model,)
         return provider.models
+
+    @property
+    def available_model_choices(self) -> tuple[ModelChoice, ...]:
+        """Return configured provider/model choices."""
+        if self._provider_settings is None:
+            return (ModelChoice(provider_name=self._provider_name, model=self.model),)
+        return tuple(
+            ModelChoice(provider_name=provider.name, model=model)
+            for provider in self._provider_settings.providers
+            for model in provider.models
+        )
 
     @property
     def tools(self) -> tuple[AgentTool, ...]:
