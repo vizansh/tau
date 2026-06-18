@@ -95,6 +95,37 @@ async def test_prompt_persists_user_assistant_and_leaf_entries(tmp_path: Path) -
 
 
 @pytest.mark.anyio
+async def test_context_usage_recalculates_after_prompt_and_compaction(tmp_path: Path) -> None:
+    storage = JsonlSessionStorage(tmp_path / "session.jsonl")
+    provider = FakeProvider(
+        [
+            [
+                ProviderResponseStartEvent(model="fake"),
+                ProviderResponseEndEvent(
+                    message=AssistantMessage(content="Long answer " * 80),
+                ),
+            ]
+        ]
+    )
+    session = await CodingSession.load(_config(tmp_path, provider, storage))
+    initial_usage = session.context_usage
+
+    _events = await _collect_session_events(session.prompt("Explain context accounting."))
+    after_prompt_usage = session.context_usage
+
+    assert after_prompt_usage.message_count == 2
+    assert after_prompt_usage.total_tokens > initial_usage.total_tokens
+    assert session.context_token_estimate == after_prompt_usage.total_tokens
+
+    _message = await session.compact("Context accounting was discussed.")
+    after_compaction_usage = session.context_usage
+
+    assert after_compaction_usage.message_count == 1
+    assert after_compaction_usage.total_tokens < after_prompt_usage.total_tokens
+    assert session.context_token_estimate == after_compaction_usage.total_tokens
+
+
+@pytest.mark.anyio
 async def test_load_restores_existing_transcript(tmp_path: Path) -> None:
     storage = JsonlSessionStorage(tmp_path / "session.jsonl")
     user_entry = MessageEntry(id="user", message=UserMessage(content="Earlier"))
@@ -587,6 +618,41 @@ async def test_session_resumes_indexed_session(tmp_path: Path) -> None:
         AssistantMessage(content="Restored"),
         UserMessage(content="Continue."),
     ]
+
+
+@pytest.mark.anyio
+async def test_session_context_usage_recalculates_after_resume(tmp_path: Path) -> None:
+    manager = SessionManager(TauPaths(home=tmp_path / ".tau", agents_home=tmp_path / ".agents"))
+    first_record = manager.create_session(cwd=tmp_path / "first", model="fake", title="First")
+    second_cwd = tmp_path / "second"
+    second_cwd.mkdir(parents=True)
+    second_record = manager.create_session(cwd=second_cwd, model="fake", title="Second")
+    first_storage = JsonlSessionStorage(first_record.path)
+    second_storage = JsonlSessionStorage(second_record.path)
+    session = await CodingSession.load(
+        CodingSessionConfig(
+            provider=FakeProvider([]),
+            model="fake",
+            system="You are Tau.",
+            storage=first_storage,
+            cwd=first_record.cwd,
+            session_id=first_record.id,
+            session_manager=manager,
+        )
+    )
+    before_resume_usage = session.context_usage
+    await second_storage.append(SessionInfoEntry(cwd=str(second_record.cwd)))
+    await second_storage.append(ModelChangeEntry(model="fake"))
+    await second_storage.append(MessageEntry(message=UserMessage(content="Earlier " * 20)))
+    await second_storage.append(MessageEntry(message=AssistantMessage(content="Restored " * 20)))
+
+    _message = await session.resume(second_record.id)
+    after_resume_usage = session.context_usage
+
+    assert before_resume_usage.message_count == 0
+    assert after_resume_usage.message_count == 2
+    assert after_resume_usage.total_tokens > before_resume_usage.total_tokens
+    assert session.context_token_estimate == after_resume_usage.total_tokens
 
 
 def test_minimal_commands_are_handled(tmp_path: Path) -> None:

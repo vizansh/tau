@@ -237,6 +237,7 @@ Useful TUI commands:
 
 ```text
 Estimated context tokens: <count>
+Context token breakdown: system=<count>, messages=<count>, tools=<count>
 ```
 
 Manual compaction is available inside the TUI:

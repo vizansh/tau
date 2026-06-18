@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from tau_agent.messages import AssistantMessage
+from tau_agent.messages import AgentMessage
 from tau_agent.tools import AgentToolResult, ToolCall
 from tau_agent.types import JSONValue
 
@@ -39,7 +39,7 @@ class MessageStartEvent(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     type: Literal["message_start"] = "message_start"
-    message_role: Literal["assistant"] = "assistant"
+    message_role: Literal["user", "assistant", "tool"] = "assistant"
 
 
 class MessageDeltaEvent(BaseModel):
@@ -53,7 +53,7 @@ class MessageEndEvent(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     type: Literal["message_end"] = "message_end"
-    message: AssistantMessage
+    message: AgentMessage
 
 
 class ToolExecutionStartEvent(BaseModel):

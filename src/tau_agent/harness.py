@@ -5,7 +5,7 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from inspect import isawaitable
 
-from tau_agent.events import AgentEvent
+from tau_agent.events import AgentEvent, MessageEndEvent, MessageStartEvent
 from tau_agent.loop import run_agent_loop
 from tau_agent.messages import AgentMessage, UserMessage
 from tau_agent.tools import AgentTool
@@ -94,16 +94,18 @@ class AgentHarness:
 
     def prompt(self, content: str) -> AsyncIterator[AgentEvent]:
         """Append a user message and run the agent loop."""
-        self._messages.append(UserMessage(content=content))
-        return self._run()
+        message = UserMessage(content=content)
+        self._messages.append(message)
+        return self._run(prompt_message=message)
 
     def continue_(self) -> AsyncIterator[AgentEvent]:
         """Continue the agent loop without appending a new user message."""
         return self._run()
 
-    async def _run(self) -> AsyncIterator[AgentEvent]:
+    async def _run(self, *, prompt_message: UserMessage | None = None) -> AsyncIterator[AgentEvent]:
         signal = SimpleCancellationToken()
         self._current_signal = signal
+        pending_prompt_event = prompt_message
         try:
             async for event in run_agent_loop(
                 provider=self._config.provider,
@@ -116,6 +118,13 @@ class AgentHarness:
             ):
                 await self._notify(event)
                 yield event
+                if pending_prompt_event is not None and event.type == "turn_start":
+                    start = MessageStartEvent(message_role="user")
+                    end = MessageEndEvent(message=pending_prompt_event)
+                    for prompt_event in (start, end):
+                        await self._notify(prompt_event)
+                        yield prompt_event
+                    pending_prompt_event = None
         finally:
             if self._current_signal is signal:
                 self._current_signal = None

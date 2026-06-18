@@ -34,7 +34,8 @@ class TuiEventAdapter:
             return
 
         if isinstance(event, MessageStartEvent):
-            self.state.assistant_buffer = ""
+            if event.message_role == "assistant":
+                self.state.assistant_buffer = ""
             return
 
         if isinstance(event, MessageDeltaEvent):
@@ -42,6 +43,20 @@ class TuiEventAdapter:
             return
 
         if isinstance(event, MessageEndEvent):
+            if event.message.role == "user":
+                self.state.add_item("user", event.message.content)
+                return
+            if event.message.role == "tool":
+                self.state.add_item(
+                    "tool",
+                    format_tool_result_block(
+                        name=event.message.name,
+                        ok=event.message.ok,
+                        content=event.message.content,
+                        data=event.message.data,
+                    ),
+                )
+                return
             text = event.message.content or self.state.assistant_buffer
             if text:
                 self.state.add_item("assistant", text)

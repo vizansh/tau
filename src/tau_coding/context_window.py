@@ -1,5 +1,7 @@
 """Approximate context-size estimation for Tau coding sessions."""
 
+from dataclasses import dataclass
+
 from tau_agent.messages import AgentMessage
 from tau_agent.tools import AgentTool
 
@@ -7,6 +9,18 @@ CHARS_PER_TOKEN = 4
 MESSAGE_OVERHEAD_TOKENS = 4
 TOOL_OVERHEAD_TOKENS = 16
 SUMMARY_MESSAGE_CHAR_LIMIT = 500
+
+
+@dataclass(frozen=True, slots=True)
+class ContextUsageEstimate:
+    """Deterministic context-size accounting for one provider request."""
+
+    total_tokens: int
+    system_tokens: int
+    message_tokens: int
+    tool_tokens: int
+    message_count: int
+    tool_count: int
 
 
 def estimate_text_tokens(text: str) -> int:
@@ -56,10 +70,26 @@ def estimate_context_tokens(
     tools: tuple[AgentTool, ...],
 ) -> int:
     """Return a rough estimate of the active provider context size."""
-    return (
-        estimate_text_tokens(system)
-        + sum(estimate_message_tokens(message) for message in messages)
-        + sum(estimate_tool_tokens(tool) for tool in tools)
+    return estimate_context_usage(system=system, messages=messages, tools=tools).total_tokens
+
+
+def estimate_context_usage(
+    *,
+    system: str,
+    messages: tuple[AgentMessage, ...],
+    tools: tuple[AgentTool, ...],
+) -> ContextUsageEstimate:
+    """Return deterministic context accounting for the active provider request."""
+    system_tokens = estimate_text_tokens(system)
+    message_tokens = sum(estimate_message_tokens(message) for message in messages)
+    tool_tokens = sum(estimate_tool_tokens(tool) for tool in tools)
+    return ContextUsageEstimate(
+        total_tokens=system_tokens + message_tokens + tool_tokens,
+        system_tokens=system_tokens,
+        message_tokens=message_tokens,
+        tool_tokens=tool_tokens,
+        message_count=len(messages),
+        tool_count=len(tools),
     )
 
 

@@ -301,6 +301,7 @@ def _compact_command(context: CommandContext) -> CommandResult:
 
 def _status_command(context: CommandContext) -> CommandResult:
     session = context.session
+    context_usage = getattr(session, "context_usage", None)
     lines = [
         f"Model: {session.model}",
         f"CWD: {session.cwd}",
@@ -311,6 +312,14 @@ def _status_command(context: CommandContext) -> CommandResult:
         f"Estimated context tokens: {session.context_token_estimate}",
         f"Resource diagnostics: {len(session.resource_diagnostics)}",
     ]
+    if context_usage is not None:
+        lines.insert(
+            -1,
+            "Context token breakdown: "
+            f"system={context_usage.system_tokens}, "
+            f"messages={context_usage.message_tokens}, "
+            f"tools={context_usage.tool_tokens}",
+        )
     if session.auto_compact_token_threshold is not None:
         lines.append(f"Auto compact threshold: {session.auto_compact_token_threshold}")
     if session.session_id is not None:

@@ -11,6 +11,7 @@ from tau_agent import (
     ToolExecutionEndEvent,
     ToolExecutionStartEvent,
     ToolExecutionUpdateEvent,
+    UserMessage,
 )
 from tau_coding.tui import TuiEventAdapter, TuiState
 from tau_coding.tui.state import format_tool_result_block
@@ -41,6 +42,17 @@ def test_tui_adapter_builds_assistant_items_from_streamed_messages() -> None:
 
     assert state.assistant_buffer == ""
     assert [(item.role, item.text) for item in state.items] == [("assistant", "Hello")]
+
+
+def test_tui_adapter_builds_user_items_from_streamed_messages() -> None:
+    state = TuiState()
+    adapter = TuiEventAdapter(state)
+
+    adapter.apply(MessageStartEvent(message_role="user"))
+    adapter.apply(MessageEndEvent(message=UserMessage(content="Hello Tau")))
+
+    assert state.assistant_buffer == ""
+    assert [(item.role, item.text) for item in state.items] == [("user", "Hello Tau")]
 
 
 def test_tui_adapter_flushes_assistant_buffer_before_tool_events() -> None:

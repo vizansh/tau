@@ -867,7 +867,6 @@ class TauTuiApp(App[None]):
 
     def _submit_prompt(self, text: str) -> None:
         """Add a prompt to the transcript and start the agent worker."""
-        self.state.add_item("user", text)
         self._refresh()
         self._prompt_worker = self.run_worker(self._run_prompt(text), exclusive=True)
 

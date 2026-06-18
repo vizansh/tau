@@ -12,8 +12,11 @@ from tau_agent import (
     AgentEndEvent,
     AgentEvent,
     AgentStartEvent,
+    AgentToolResult,
     AssistantMessage,
+    MessageEndEvent,
     ToolCall,
+    ToolExecutionEndEvent,
     ToolResultMessage,
     UserMessage,
 )
@@ -112,16 +115,19 @@ class FakeSession:
 
     async def compact(self, summary: str) -> str:
         self.compact_summaries.append(summary)
+        self.context_token_estimate = 42
         return "Compacted 2 context entries."
 
     async def resume(self, session_id: str) -> str:
         self.resumed_session_ids.append(session_id)
         self.messages = (UserMessage(content="Restored prompt"),)
+        self.context_token_estimate = 456
         return f"Resumed session: {session_id}"
 
     async def new_session(self) -> str:
         self.new_session_count += 1
         self.messages = ()
+        self.context_token_estimate = 0
         return "Started new session: new-session"
 
     async def prompt(self, text: str) -> AsyncIterator[AgentEvent]:
@@ -925,8 +931,82 @@ async def test_tui_prompt_worker_refreshes_directly() -> None:
 
 
 @pytest.mark.anyio
+async def test_tui_prompt_worker_refreshes_context_after_message_changes() -> None:
+    class ContextChangingSession(FakeSession):
+        async def prompt(self, text: str) -> AsyncIterator[AgentEvent]:
+            self.prompt_texts.append(text)
+            self.context_token_estimate = 10
+            yield AgentStartEvent()
+            self.context_token_estimate = 20
+            yield MessageEndEvent(message=UserMessage(content=text))
+            self.context_token_estimate = 30
+            yield MessageEndEvent(message=AssistantMessage(content="Using a tool."))
+            self.context_token_estimate = 40
+            yield ToolExecutionEndEvent(
+                result=AgentToolResult(
+                    tool_call_id="call-1",
+                    name="read",
+                    ok=True,
+                    content="contents",
+                )
+            )
+            self.context_token_estimate = 50
+            yield AgentEndEvent()
+
+    session = ContextChangingSession()
+    app = TauTuiApp(session)
+    observed_context: list[int] = []
+
+    def fake_refresh() -> None:
+        observed_context.append(session.context_token_estimate)
+
+    app._refresh = fake_refresh  # type: ignore[method-assign]
+
+    await app._run_prompt("read README")
+
+    assert observed_context == [10, 20, 30, 40, 50]
+    assert [(item.role, item.text) for item in app.state.items] == [
+        ("user", "read README"),
+        ("assistant", "Using a tool."),
+        ("tool", "✓ read\ncontents"),
+    ]
+
+
+@pytest.mark.anyio
+async def test_tui_resume_refreshes_context_after_session_swap() -> None:
+    session = FakeSession(messages=[UserMessage(content="Earlier")])
+    app = TauTuiApp(session)
+    observed_context: list[int] = []
+    notifications: list[str] = []
+
+    def fake_refresh() -> None:
+        observed_context.append(session.context_token_estimate)
+
+    def fake_notify(message: str, **kwargs: object) -> None:
+        del kwargs
+        notifications.append(message)
+
+    app._refresh = fake_refresh  # type: ignore[method-assign]
+    app._notify = fake_notify  # type: ignore[method-assign]
+
+    await app._resume_session("session-1")
+
+    assert observed_context == [456]
+    assert notifications == ["Resumed session: session-1"]
+    assert [(item.role, item.text) for item in app.state.items] == [
+        ("user", "Restored prompt"),
+    ]
+
+
+@pytest.mark.anyio
 async def test_tui_app_runs_initial_prompt() -> None:
-    session = FakeSession(events=[AgentStartEvent(), AgentEndEvent()])
+    session = FakeSession(
+        events=[
+            AgentStartEvent(),
+            MessageEndEvent(message=UserMessage(content="explain this repo")),
+            AgentEndEvent(),
+        ]
+    )
     app = TauTuiApp(session, initial_prompt="explain this repo")
 
     async with app.run_test() as pilot:

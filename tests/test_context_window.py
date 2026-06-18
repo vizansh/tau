@@ -2,7 +2,9 @@ from pathlib import Path
 
 from tau_agent import AssistantMessage, ToolCall, ToolResultMessage, UserMessage
 from tau_coding.context_window import (
+    ContextUsageEstimate,
     estimate_context_tokens,
+    estimate_context_usage,
     estimate_message_tokens,
     estimate_text_tokens,
     summarize_messages_for_compaction,
@@ -43,6 +45,23 @@ def test_context_token_estimate_includes_system_messages_and_tools(tmp_path: Pat
     )
 
     assert estimate > estimate_text_tokens("You are Tau.hellohi")
+
+
+def test_context_usage_estimate_reports_breakdown(tmp_path: Path) -> None:
+    tools = tuple(create_coding_tools(cwd=tmp_path))
+    messages = (UserMessage(content="hello"), AssistantMessage(content="hi"))
+
+    usage = estimate_context_usage(system="You are Tau.", messages=messages, tools=tools)
+
+    assert isinstance(usage, ContextUsageEstimate)
+    assert usage.message_count == 2
+    assert usage.tool_count == len(tools)
+    assert usage.system_tokens == estimate_text_tokens("You are Tau.")
+    assert usage.message_tokens == sum(estimate_message_tokens(message) for message in messages)
+    assert usage.total_tokens == usage.system_tokens + usage.message_tokens + usage.tool_tokens
+    assert estimate_context_tokens(system="You are Tau.", messages=messages, tools=tools) == (
+        usage.total_tokens
+    )
 
 
 def test_summarize_messages_for_compaction_is_deterministic() -> None:

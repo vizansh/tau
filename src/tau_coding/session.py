@@ -20,7 +20,11 @@ from tau_agent.tools import AgentTool
 from tau_ai import ModelProvider
 from tau_coding.commands import CommandRegistry, CommandResult, create_default_command_registry
 from tau_coding.context import discover_project_context_with_diagnostics
-from tau_coding.context_window import estimate_context_tokens, summarize_messages_for_compaction
+from tau_coding.context_window import (
+    ContextUsageEstimate,
+    estimate_context_usage,
+    summarize_messages_for_compaction,
+)
 from tau_coding.paths import TauPaths
 from tau_coding.prompt_templates import (
     PromptTemplate,
@@ -261,7 +265,12 @@ class CodingSession:
     @property
     def context_token_estimate(self) -> int:
         """Return a rough token estimate for the active provider context."""
-        return estimate_context_tokens(
+        return self.context_usage.total_tokens
+
+    @property
+    def context_usage(self) -> ContextUsageEstimate:
+        """Return structured context accounting for the active provider context."""
+        return estimate_context_usage(
             system=self._harness.config.system,
             messages=self._harness.messages,
             tools=tuple(self._harness.config.tools),
