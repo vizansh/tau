@@ -546,7 +546,7 @@ class TreePickerScreen(ModalScreen[tuple[str, bool] | None]):
 
     def _list_items(self) -> list[ListItem]:
         return [
-            ListItem(Label(_tree_picker_label(choice), markup=False))
+            ListItem(Label(_tree_picker_label(choice, theme=self.theme), markup=False))
             for choice in self._visible_choices()
         ]
 
@@ -2356,9 +2356,20 @@ def _session_picker_label(record: SessionCompletionRecord) -> str:
     return " - ".join(parts)
 
 
-def _tree_picker_label(choice: SessionTreeChoice) -> str:
+def _tree_picker_label(choice: SessionTreeChoice, *, theme: TuiTheme) -> Text:
     marker = "* " if choice.active else "  "
-    return f"{marker}{choice.label}"
+    label = choice.label
+    indent_width = len(label) - len(label.lstrip(" "))
+    indent = label[:indent_width]
+    body = label[indent_width:]
+    author, separator, rest = body.partition(":")
+    text = Text(f"{marker}{indent}")
+    if separator:
+        text.append(author, style=theme.accent)
+        text.append(f"{separator}{rest}")
+    else:
+        text.append(body)
+    return text
 
 
 def _active_tree_choice_index(choices: Sequence[SessionTreeChoice]) -> int:

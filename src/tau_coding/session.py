@@ -332,7 +332,7 @@ class CodingSession:
                 active=entry.id == self._state.active_leaf_id,
                 is_tool_call=_is_tool_call_tree_entry(entry),
             )
-            for entry in entries
+            for entry in _ordered_tree_entries(entries)
             if _is_branchable_tree_entry(entry)
         )
 
@@ -985,6 +985,33 @@ def _tree_branch_indents(entries: list[SessionEntry]) -> dict[str, int]:
         sibling_index = sibling_indexes.get(entry.id, 0)
         indents[entry.id] = parent_indent + (1 if sibling_index > 0 else 0)
     return indents
+
+
+def _ordered_tree_entries(entries: list[SessionEntry]) -> tuple[SessionEntry, ...]:
+    children_by_parent: dict[str | None, list[SessionEntry]] = {}
+    for entry in entries:
+        if entry.type != "leaf":
+            children_by_parent.setdefault(entry.parent_id, []).append(entry)
+
+    ordered: list[SessionEntry] = []
+    seen: set[str] = set()
+
+    def append_descendants(parent_id: str | None) -> None:
+        children = children_by_parent.get(parent_id, [])
+        for child in children:
+            if child.id not in seen:
+                ordered.append(child)
+                seen.add(child.id)
+        for child in children:
+            append_descendants(child.id)
+
+    append_descendants(None)
+    for entry in entries:
+        if entry.type != "leaf" and entry.id not in seen:
+            ordered.append(entry)
+            seen.add(entry.id)
+            append_descendants(entry.id)
+    return tuple(ordered)
 
 
 def _is_tool_call_tree_entry(entry: SessionEntry) -> bool:

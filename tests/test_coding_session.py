@@ -514,6 +514,11 @@ async def test_session_tree_choices_indent_only_diverged_branches(tmp_path: Path
         parent_id="first-branch",
         message=UserMessage(content="Follow-up"),
     )
+    main_child = MessageEntry(
+        id="main-child",
+        parent_id="main",
+        message=UserMessage(content="Main follow-up"),
+    )
     second_branch = MessageEntry(
         id="second-branch",
         parent_id="root",
@@ -523,6 +528,7 @@ async def test_session_tree_choices_indent_only_diverged_branches(tmp_path: Path
     await storage.append(main)
     await storage.append(first_branch)
     await storage.append(first_branch_child)
+    await storage.append(main_child)
     await storage.append(second_branch)
     await storage.append(LeafEntry(entry_id="second-branch"))
     session = await CodingSession.load(_config(tmp_path, FakeProvider([]), storage))
@@ -533,8 +539,9 @@ async def test_session_tree_choices_indent_only_diverged_branches(tmp_path: Path
         "user: Root",
         "assistant: Main",
         "  assistant: First branch",
-        "  user: Follow-up",
         "  assistant: Second branch",
+        "user: Main follow-up",
+        "  user: Follow-up",
     ]
 
 

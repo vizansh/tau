@@ -1452,13 +1452,15 @@ async def test_tui_app_tree_picker_branches_with_summary() -> None:
         assert isinstance(app.screen, TreePickerScreen)
         tree_list = app.screen.query_one("#tree-picker-list", ListView)
         assert tree_list.index == 3
-        labels = [str(item.query_one(Label).render()) for item in tree_list.children]
+        rendered_labels = [item.query_one(Label).render() for item in tree_list.children]
+        labels = [str(label) for label in rendered_labels]
         assert labels == [
             "  user: Root",
             "  tool call: read",
             "  assistant: Left",
             "* assistant: Right",
         ]
+        assert str(rendered_labels[0].spans[0].style) == "rgb(244,162,97)"
 
         await pilot.press("up")
         await pilot.pause()
