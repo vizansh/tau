@@ -142,6 +142,8 @@ The built-in themes are:
 
 - `tau-dark`, the default Toad-inspired dark theme with subtle left-accent
   conversation rows.
+- `tau-light`, a light theme using the same TUI components with light
+  backgrounds and darker foreground colors.
 - `high-contrast`, a sharper dark theme for brighter terminal contrast.
 
 The built-in sidebar is responsive: Tau shows it on medium or larger terminal

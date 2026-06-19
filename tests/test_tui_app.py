@@ -735,6 +735,17 @@ def test_tui_app_uses_configured_theme_css_variables() -> None:
     assert variables["tau-prompt-border"] == "#00ff66"
 
 
+def test_tui_app_uses_light_theme_css_variables() -> None:
+    app = TauTuiApp(FakeSession(), tui_settings=TuiSettings(theme="tau-light"))
+
+    variables = app.get_theme_variable_defaults()
+
+    assert variables["tau-screen-background"] == "#ffffff"
+    assert variables["tau-chrome-background"] == "#f3f4f6"
+    assert variables["tau-prompt-background"] == "#f8fafc"
+    assert variables["tau-prompt-border"] == "#2563eb"
+
+
 def test_tau_dark_theme_uses_black_chat_backgrounds() -> None:
     theme = TuiSettings().resolved_theme
 
@@ -743,6 +754,18 @@ def test_tau_dark_theme_uses_black_chat_backgrounds() -> None:
     assert theme.prompt_background == "#101419"
     assert theme.role_styles["user"].body.endswith("on #000000")
     assert theme.role_styles["assistant"].body.endswith("on #000000")
+
+
+def test_tau_light_theme_uses_light_chat_backgrounds() -> None:
+    theme = TuiSettings(theme="tau-light").resolved_theme
+
+    assert theme.screen_background == "#ffffff"
+    assert theme.transcript_background == "#ffffff"
+    assert theme.prompt_text == "#111827"
+    assert theme.syntax_theme == "ansi_light"
+    assert theme.role_styles["user"].body.endswith("on #ffffff")
+    assert theme.role_styles["assistant"].body.endswith("on #ffffff")
+    assert theme.role_styles["error"].border == "#b91c1c"
 
 
 def test_tui_app_loads_restored_messages_into_display_state() -> None:
