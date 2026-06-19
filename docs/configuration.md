@@ -213,7 +213,8 @@ Inside the TUI:
 ```text
 /resume
 /name <new name>
-/status
+/session
+/theme [name]
 /export [--format html|jsonl] [destination]
 ```
 
@@ -246,18 +247,8 @@ Project resources override user resources with the same name. Duplicate or
 overridden resources are reported through diagnostics instead of preventing Tau
 from starting.
 
-Useful TUI commands:
-
-```text
-/skills
-/resources
-/skill:<name> [request]
-```
-
-`/skill:<name>` injects the full skill markdown into the next prompt with the
-skill file location and the directory relative references should resolve from.
-For ordinary prompts, Tau lists loaded skills in the system prompt so the model
-can read a relevant skill file through the `read` tool.
+Tau lists loaded skills in the system prompt so the model can read a relevant
+skill file through the `read` tool.
 
 ## Project Context
 
@@ -279,10 +270,9 @@ The project root is the nearest ancestor containing a marker such as `.git`,
 Useful TUI commands:
 
 ```text
-/context
 /reload
-/thinking
-/thinking high
+/theme
+/theme tau-light
 ```
 
 In the TUI, `Shift-Tab` cycles the active thinking mode by default. `Ctrl+T`
@@ -321,7 +311,7 @@ skips hidden paths and common generated/cache directories such as `.git`,
 
 ## Context Management
 
-`/status` shows a rough context-size estimate:
+`/session` shows a rough context-size estimate:
 
 ```text
 Estimated context tokens: <count>

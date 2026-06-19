@@ -781,7 +781,7 @@ async def test_session_loads_with_resource_diagnostics_instead_of_failing(
     assert [skill.name for skill in session.skills] == ["dup"]
     assert len(session.resource_diagnostics) == 1
     assert "Duplicate skill name" in session.resource_diagnostics[0].message
-    assert "Resource diagnostics: 1" in (session.handle_command("/status").message or "")
+    assert "Resource diagnostics: 1" in (session.handle_command("/session").message or "")
 
 
 @pytest.mark.anyio
@@ -1203,9 +1203,8 @@ def test_minimal_commands_are_handled(tmp_path: Path) -> None:
     )
 
     assert session.handle_command("hello").handled is False
-    assert session.handle_command("/help").message is not None
-    assert "/help" in session.handle_command("/help").message
     assert session.handle_command("/new").new_session_requested is True
     assert session.handle_command("/clear").message == "Unknown command: /clear"
-    assert session.handle_command("/exit").exit_requested is True
+    assert session.handle_command("/quit").exit_requested is True
+    assert session.handle_command("/exit").message == "Unknown command: /exit"
     assert session.handle_command("/unknown").message == "Unknown command: /unknown"

@@ -178,19 +178,9 @@ def create_default_command_registry() -> CommandRegistry:
     registry = CommandRegistry()
     registry.register(
         SlashCommand(
-            name="help",
-            aliases=("?",),
-            usage="/help",
-            description="Show available slash commands.",
-            handler=_help_command,
-        )
-    )
-    registry.register(
-        SlashCommand(
-            name="exit",
-            aliases=("quit", "q"),
-            usage="/exit",
-            description="Exit the current TUI session.",
+            name="quit",
+            usage="/quit",
+            description="Exit the current session.",
             handler=_exit_command,
         )
     )
@@ -221,26 +211,20 @@ def create_default_command_registry() -> CommandRegistry:
     )
     registry.register(
         SlashCommand(
-            name="status",
-            usage="/status",
-            description="Show current session status.",
+            name="session",
+            usage="/session",
+            description="Show session info and stats.",
             handler=_status_command,
+            search_terms=("info",),
         )
     )
     registry.register(
         SlashCommand(
-            name="skills",
-            usage="/skills",
-            description="List loaded skills.",
-            handler=_skills_command,
-        )
-    )
-    registry.register(
-        SlashCommand(
-            name="resources",
-            usage="/resources",
-            description="Show loaded resources and discovery diagnostics.",
-            handler=_resources_command,
+            name="hotkeys",
+            usage="/hotkeys",
+            description="Show common keyboard shortcuts.",
+            handler=_hotkeys_command,
+            search_terms=("keys", "shortcuts", "bindings"),
         )
     )
     registry.register(
@@ -253,27 +237,11 @@ def create_default_command_registry() -> CommandRegistry:
     )
     registry.register(
         SlashCommand(
-            name="context",
-            usage="/context",
-            description="Show active project context files.",
-            handler=_context_command,
-        )
-    )
-    registry.register(
-        SlashCommand(
-            name="skill",
-            usage="/skill:<name> [request]",
-            description="Use a loaded skill in the next prompt.",
-            handler=_skill_command,
-        )
-    )
-    registry.register(
-        SlashCommand(
             name="resume",
             usage="/resume [session-id]",
             description="Resume a previous session.",
             handler=_resume_command,
-            search_terms=("sessions", "history", "previous"),
+            search_terms=("history", "previous"),
         )
     )
     registry.register(
@@ -291,15 +259,6 @@ def create_default_command_registry() -> CommandRegistry:
             usage="/model",
             description="Choose the active model.",
             handler=_model_command,
-        )
-    )
-    registry.register(
-        SlashCommand(
-            name="thinking",
-            usage="/thinking [mode]",
-            description="Show or set the active thinking mode.",
-            handler=_thinking_command,
-            search_terms=("reasoning", "effort"),
         )
     )
     registry.register(
@@ -388,6 +347,24 @@ def _status_command(context: CommandContext) -> CommandResult:
         lines.append(f"Auto compact threshold: {session.auto_compact_token_threshold}")
     if session.session_id is not None:
         lines.append(f"Session: {session.session_id}")
+    return CommandResult(handled=True, message="\n".join(lines))
+
+
+def _hotkeys_command(context: CommandContext) -> CommandResult:
+    lines = [
+        "Common keyboard shortcuts:",
+        "- Enter: submit prompt",
+        "- Shift+Enter: insert newline",
+        "- Alt+Enter: queue follow-up while running",
+        "- Esc: cancel active run",
+        "- Ctrl+K: open slash-command completions",
+        "- Ctrl+R: open session picker",
+        "- Shift+Tab: cycle thinking mode",
+        "- Ctrl+T: toggle thinking tokens",
+        "- Ctrl+O: collapse or expand tool output",
+        "- Ctrl+C: clear prompt input",
+        "- Ctrl+D: quit",
+    ]
     return CommandResult(handled=True, message="\n".join(lines))
 
 
