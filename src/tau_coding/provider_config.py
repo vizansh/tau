@@ -525,6 +525,31 @@ def provider_thinking_levels(
     return provider.thinking_levels
 
 
+def provider_thinking_unavailable_reason(
+    provider: ProviderConfig,
+    *,
+    model: str | None = None,
+) -> str | None:
+    """Explain why a provider/model pair has no configurable thinking modes."""
+    selected_model = model or provider.default_model
+    if provider.thinking_levels is None:
+        if isinstance(provider, OpenAICodexProviderConfig):
+            return (
+                "OpenAI Codex subscription can stream reasoning output, but Tau does "
+                "not have a supported Codex transport mapping for changing reasoning "
+                "effort yet"
+            )
+        if isinstance(provider, AnthropicProviderConfig):
+            return (
+                "Anthropic thinking controls use model-specific thinking/adaptive "
+                "effort settings that Tau has not mapped yet"
+            )
+        return f"Provider {provider.name} does not declare thinking_levels"
+    if provider.thinking_models and selected_model not in provider.thinking_models:
+        return f"{provider.name}:{selected_model} is not declared in thinking_models"
+    return None
+
+
 def provider_default_thinking_level(
     provider: ProviderConfig,
     *,

@@ -18,6 +18,7 @@ from tau_coding.provider_config import (
     provider_has_usable_credentials,
     provider_settings_from_json,
     provider_thinking_levels,
+    provider_thinking_unavailable_reason,
     resolve_provider_selection,
     save_provider_settings,
     upsert_openai_compatible_provider,
@@ -45,6 +46,7 @@ def test_builtin_openai_declares_model_scoped_thinking_capabilities() -> None:
     settings = ProviderSettings()
     openai = settings.get_provider("openai")
     openrouter = settings.get_provider("openrouter")
+    codex = settings.get_provider("openai-codex")
 
     assert provider_thinking_levels(openai, model="gpt-5.5") == (
         "off",
@@ -54,8 +56,22 @@ def test_builtin_openai_declares_model_scoped_thinking_capabilities() -> None:
         "xhigh",
     )
     assert provider_default_thinking_level(openai, model="gpt-5.5") == "medium"
+    assert provider_thinking_unavailable_reason(openai, model="gpt-5.5") is None
     assert provider_thinking_levels(openai, model="gpt-4.1") == ()
+    assert (
+        provider_thinking_unavailable_reason(openai, model="gpt-4.1")
+        == "openai:gpt-4.1 is not declared in thinking_models"
+    )
     assert provider_thinking_levels(openrouter, model="openai/gpt-5.5") == ()
+    assert (
+        provider_thinking_unavailable_reason(openrouter, model="openai/gpt-5.5")
+        == "Provider openrouter does not declare thinking_levels"
+    )
+    assert provider_thinking_levels(codex, model="gpt-5.5") == ()
+    assert provider_thinking_unavailable_reason(codex, model="gpt-5.5") == (
+        "OpenAI Codex subscription can stream reasoning output, but Tau does not "
+        "have a supported Codex transport mapping for changing reasoning effort yet"
+    )
 
 
 def test_save_and_load_provider_settings_round_trip(tmp_path: Path) -> None:

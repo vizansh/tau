@@ -320,6 +320,13 @@ OpenAI-compatible providers can opt in by adding `thinking_levels`,
 provider entry. Add `thinking_models` when only some configured models support
 those levels.
 
+When controls are unavailable, the TUI shows `unavailable` in the session
+summary and failed thinking-cycle attempts include the reason. `/session` also
+prints the reason, for example when the active provider does not declare
+`thinking_levels`, when the active model is not listed in `thinking_models`, or
+when the Codex subscription transport can stream reasoning output but Tau cannot
+change reasoning effort for it yet.
+
 Typing `@` in the TUI prompt opens file-reference suggestions for the current
 session working directory. Suggestions include matching files and directories
 from the project tree and insert paths such as `@src/app.py`. Tau intentionally
