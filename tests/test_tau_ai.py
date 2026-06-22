@@ -907,6 +907,7 @@ async def test_anthropic_provider_includes_configured_thinking_budget() -> None:
         )
 
     payload = loads(requests[0].content)
+    assert payload["max_tokens"] == 9216
     assert payload["thinking"] == {"type": "enabled", "budget_tokens": 8192}
 
 

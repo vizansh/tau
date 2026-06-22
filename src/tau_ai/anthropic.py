@@ -263,9 +263,12 @@ def _build_messages_payload(
     tools: list[AgentTool],
     thinking_budget_tokens: int | None = None,
 ) -> dict[str, JSONValue]:
+    max_tokens = DEFAULT_MAX_TOKENS
+    if thinking_budget_tokens is not None:
+        max_tokens = max(max_tokens, thinking_budget_tokens + 1024)
     payload: dict[str, JSONValue] = {
         "model": model,
-        "max_tokens": DEFAULT_MAX_TOKENS,
+        "max_tokens": max_tokens,
         "stream": True,
         "system": system,
         "messages": [_anthropic_message(message) for message in messages],
