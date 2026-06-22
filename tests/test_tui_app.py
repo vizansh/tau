@@ -2365,6 +2365,7 @@ async def test_tui_app_toggles_thinking_tokens_from_keybinding_while_running() -
 
         assert app.state.show_thinking is False
         assert "final answer" in transcript_text()
+        assert "Thinking… Press Ctrl+T to show thinking tokens." in transcript_text()
         assert "internal plan" not in transcript_text()
 
         await pilot.press("ctrl+t")
@@ -2372,10 +2373,12 @@ async def test_tui_app_toggles_thinking_tokens_from_keybinding_while_running() -
         assert app.state.show_thinking is True
         assert app.state.running is True
         assert "internal plan" in transcript_text()
+        assert "Thinking… Press Ctrl+T to show thinking tokens." not in transcript_text()
 
         await pilot.press("ctrl+t")
         await pilot.pause()
         assert app.state.show_thinking is False
+        assert "Thinking… Press Ctrl+T to show thinking tokens." in transcript_text()
         assert "internal plan" not in transcript_text()
 
     assert notifications == ["Thinking tokens shown.", "Thinking tokens hidden."]
