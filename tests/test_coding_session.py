@@ -722,11 +722,13 @@ async def test_session_branch_with_summary_rebuilds_context(tmp_path: Path) -> N
     assert "<conversation>" in provider.calls[0][2][0].content
     assert "Use this EXACT format:" in provider.calls[0][2][0].content
     assert "Abandoned follow-up" in provider.calls[0][2][0].content
-    assert session.messages[0] == UserMessage(content="Root")
-    assert session.messages[1].role == "user"
-    assert isinstance(session.messages[1].content, str)
-    assert "Previous branch summary from root:" in session.messages[1].content
-    assert "The abandoned branch went left." in session.messages[1].content
+    assert len(session.messages) == 1
+    assert session.messages[0].role == "user"
+    assert isinstance(session.messages[0].content, str)
+    assert session.messages[0].content.startswith(
+        "The following is a summary of a branch that this conversation came back from:"
+    )
+    assert "The abandoned branch went left." in session.messages[0].content
 
 
 @pytest.mark.anyio
@@ -825,7 +827,8 @@ async def test_session_branch_with_summary_falls_back_when_model_summary_is_unav
     assert summary.type == "branch_summary"
     assert "Automatically compacted 2 prior message(s)." in summary.summary
     assert "Abandoned follow-up" in summary.summary
-    assert "Abandoned follow-up" in session.messages[1].content
+    assert len(session.messages) == 1
+    assert "Abandoned follow-up" in session.messages[0].content
 
 
 @pytest.mark.anyio

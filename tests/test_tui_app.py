@@ -561,6 +561,44 @@ def test_skill_chat_items_use_distinct_compact_style() -> None:
     assert "38;2;229;212;239" in output
 
 
+def test_branch_summary_chat_items_expand_with_tool_results_toggle() -> None:
+    item = ChatItem(
+        role="branch_summary",
+        text="Branch summary (Ctrl+O to expand)",
+        tool_result_text="Detailed summary text",
+    )
+    collapsed_console = Console(record=True, width=80)
+    collapsed_console.print(render_chat_item(item, show_tool_results=False))
+    collapsed = collapsed_console.export_text()
+    expanded_console = Console(record=True, width=80)
+    expanded_console.print(render_chat_item(item, show_tool_results=True))
+    expanded = expanded_console.export_text()
+
+    assert "Branch summary (Ctrl+O to expand)" in collapsed
+    assert "Detailed summary text" not in collapsed
+    assert "Branch Summary" in expanded
+    assert "Detailed summary text" in expanded
+
+
+def test_tui_state_compacts_branch_summary_messages() -> None:
+    state = tui_app.TuiState()
+
+    state.load_messages(
+        [
+            UserMessage(
+                content=(
+                    "The following is a summary of a branch that this conversation came back from:\n"
+                    "<summary>\nImportant context.\n</summary>"
+                )
+            )
+        ]
+    )
+
+    assert [(item.role, item.text, item.tool_result_text) for item in state.items] == [
+        ("branch_summary", "Branch summary (Ctrl+O to expand)", "Important context.")
+    ]
+
+
 def test_tui_state_compacts_expanded_skill_messages() -> None:
     skill = Skill(
         name="review",

@@ -116,6 +116,7 @@ TAU_DARK_THEME = TuiTheme(
         "status": TuiRoleStyle(border="#526070", body="#aab4c2 on #000000"),
         "thinking": TuiRoleStyle(border="#4b5563", body="#9ca3af on #000000"),
         "skill": TuiRoleStyle(border="#b48ead", body="#e5d4ef on #000000"),
+        "branch_summary": TuiRoleStyle(border="#c084fc", body="#e9d5ff on #000000"),
     },
 )
 
@@ -149,6 +150,7 @@ HIGH_CONTRAST_THEME = TuiTheme(
         "status": TuiRoleStyle(border="#ffffff", body="white on #111111"),
         "thinking": TuiRoleStyle(border="#00b7ff", body="white on #001626"),
         "skill": TuiRoleStyle(border="#ff8cff", body="white on #260026"),
+        "branch_summary": TuiRoleStyle(border="#d8b4fe", body="white on #260026"),
     },
 )
 
@@ -182,6 +184,7 @@ TAU_LIGHT_THEME = TuiTheme(
         "status": TuiRoleStyle(border="#64748b", body="#334155"),
         "thinking": TuiRoleStyle(border="#6b7280", body="#4b5563"),
         "skill": TuiRoleStyle(border="#7c3aed", body="#4c1d95"),
+        "branch_summary": TuiRoleStyle(border="#9333ea", body="#581c87"),
     },
 )
 
