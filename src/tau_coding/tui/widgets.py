@@ -134,7 +134,7 @@ class TranscriptMessageWidget(Horizontal):
     TranscriptMessageWidget {
         width: 1fr;
         height: auto;
-        margin: 1 1 1 0;
+        margin: 1 1 2 0;
     }
 
     TranscriptMessageWidget > .transcript-message-gutter {
@@ -192,11 +192,11 @@ class TranscriptMessageWidget(Horizontal):
     def _body_widget(self) -> Static | ThemedMarkdownWidget:
         if _use_plain_transcript_body(self.item):
             body = Static(
-                Text(
-                    self.selection_text,
-                    style=self._role_style.body,
-                    overflow="fold",
-                    no_wrap=False,
+                _transcript_plain_body_text(
+                    self.item,
+                    text=self.selection_text,
+                    body_style=self._role_style.body,
+                    theme=self._theme,
                 ),
                 expand=True,
                 shrink=True,
@@ -231,7 +231,7 @@ class StreamingTranscriptMessageWidget(ThemedMarkdownWidget):
     StreamingTranscriptMessageWidget {
         width: 1fr;
         height: auto;
-        margin: 1 1 1 1;
+        margin: 1 1 2 1;
         padding: 0 1 0 0;
     }
     """
@@ -538,6 +538,47 @@ def _split_rich_style_colors(style: str) -> tuple[str | None, str | None]:
 def _use_plain_transcript_body(item: ChatItem) -> bool:
     """Return whether a transcript item can use fast selectable plain text."""
     return item.role in {"user", "tool", "skill", "error"}
+
+
+def _transcript_plain_body_text(
+    item: ChatItem,
+    *,
+    text: str,
+    body_style: str,
+    theme: TuiTheme,
+) -> Text:
+    """Return styled plain transcript text for fast selectable rows."""
+    if item.role != "tool":
+        return Text(text, style=body_style, overflow="fold", no_wrap=False)
+    rendered = Text(style=body_style, overflow="fold", no_wrap=False)
+    invocation, separator, result_text = text.partition("\n\n")
+    rendered.append(
+        _render_transcript_tool_invocation(
+            invocation,
+            body_style=body_style,
+            accent_style=_tool_accent_style(item, theme=theme),
+        )
+    )
+    if separator:
+        rendered.append(separator)
+        rendered.append(result_text, style=body_style)
+    return rendered
+
+
+def _render_transcript_tool_invocation(
+    text: str,
+    *,
+    body_style: str,
+    accent_style: str | None,
+) -> Text:
+    """Render a selectable tool invocation with status color after the prefix."""
+    rendered = Text(style=body_style, overflow="fold", no_wrap=False)
+    accent_style = accent_style or body_style
+    prefix, name, remainder = _split_tool_invocation(text)
+    rendered.append(prefix, style=body_style)
+    rendered.append(name, style=accent_style)
+    rendered.append(remainder, style=accent_style)
+    return rendered
 
 
 def _transcript_item_markdown(
