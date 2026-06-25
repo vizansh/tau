@@ -3,7 +3,7 @@
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Literal
+from typing import Final, Literal, cast
 
 from tau_agent import (
     AgentEvent,
@@ -101,6 +101,7 @@ from tau_coding.thinking import (
 from tau_coding.tools import create_bash_tool, create_coding_tools
 
 StreamingBehavior = Literal["steer", "follow_up"]
+_UNSET_LEAF_ID: Final[object] = object()
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +131,14 @@ class SessionTreeChoice:
     label: str
     active: bool = False
     is_tool_call: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class SessionTreeBranchResult:
+    """Result of moving the active session tree leaf."""
+
+    message: str
+    input_prefill: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -247,9 +256,10 @@ class CodingSession:
             entries = _detach_missing_parents(entries)
 
         linear_state = SessionState.from_entries(entries)
+        latest_leaf = _latest_leaf_entry(entries)
         state = (
-            SessionState.from_entries(entries, leaf_id=linear_state.active_leaf_id)
-            if linear_state.active_leaf_id is not None
+            SessionState.from_entries(entries, leaf_id=latest_leaf.entry_id)
+            if latest_leaf is not None
             else linear_state
         )
         tools = config.tools if config.tools is not None else create_coding_tools(cwd=config.cwd)
@@ -392,16 +402,18 @@ class CodingSession:
         summarize: bool = False,
         custom_instructions: str | None = None,
         replace_instructions: bool = False,
-    ) -> str:
+    ) -> SessionTreeBranchResult:
         """Move the active leaf to a previous entry, preserving existing history."""
         entries = await self._read_session_entries()
         by_id = {entry.id: entry for entry in entries}
         if entry_id not in by_id:
             raise ValueError(f"Unknown session entry: {entry_id}")
-        if not _is_branchable_tree_entry(by_id[entry_id]):
+        selected_entry = by_id[entry_id]
+        if not _is_branchable_tree_entry(selected_entry):
             raise ValueError(f"Session entry cannot be branched from: {entry_id}")
 
-        target_id = entry_id
+        target_id: str | None = entry_id
+        input_prefill: str | None = None
         summary_entry: BranchSummaryEntry | None = None
         if summarize:
             abandoned_messages = _messages_after_entry_on_active_path(
@@ -422,6 +434,9 @@ class CodingSession:
                 )
                 await self._append_session_entry(summary_entry)
                 target_id = summary_entry.id
+        elif selected_entry.type == "message" and isinstance(selected_entry.message, UserMessage):
+            target_id = selected_entry.parent_id
+            input_prefill = selected_entry.message.content
 
         leaf = LeafEntry(parent_id=target_id, entry_id=target_id)
         await self._append_session_entry(leaf)
@@ -434,7 +449,12 @@ class CodingSession:
         self._sync_thinking_level_to_active_model()
         self._refresh_runtime_provider()
         suffix = " with branch summary" if summary_entry is not None else ""
-        return f"Branched session at {target_id}{suffix}."
+        if input_prefill is not None:
+            return SessionTreeBranchResult(
+                message=f"Branched session before {entry_id}.",
+                input_prefill=input_prefill,
+            )
+        return SessionTreeBranchResult(message=f"Branched session at {target_id}{suffix}.")
 
     @property
     def thinking_level(self) -> ThinkingLevel:
@@ -1196,9 +1216,17 @@ class CodingSession:
         await self._refresh_persisted_state()
         return persisted_count + len(new_messages)
 
-    async def _refresh_persisted_state(self, *, leaf_id: str | None = None) -> None:
+    async def _refresh_persisted_state(
+        self,
+        *,
+        leaf_id: str | None | object = _UNSET_LEAF_ID,
+    ) -> None:
         entries = await self._read_session_entries()
-        self._state = SessionState.from_entries(entries, leaf_id=leaf_id)
+        self._state = (
+            SessionState.from_entries(entries)
+            if leaf_id is _UNSET_LEAF_ID
+            else SessionState.from_entries(entries, leaf_id=cast(str | None, leaf_id))
+        )
         if self._config.session_id is not None and self._config.session_manager is not None:
             self._config.session_manager.touch_session(
                 self._config.session_id,
@@ -1481,6 +1509,13 @@ def _last_parent_id_from_state(state: SessionState) -> str | None:
         return state.active_leaf_id
     if state.entries:
         return state.entries[-1].id
+    return None
+
+
+def _latest_leaf_entry(entries: list[SessionEntry]) -> LeafEntry | None:
+    for entry in reversed(entries):
+        if isinstance(entry, LeafEntry):
+            return entry
     return None
 
 
