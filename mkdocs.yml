@@ -7,6 +7,12 @@ edit_uri: edit/main/docs/
 
 copyright: Copyright &copy; 2026 Alejandro AO
 
+extra_css:
+  - assets/landing.css
+
+extra_javascript:
+  - assets/landing.js
+
 theme:
   name: material
   palette:
