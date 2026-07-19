@@ -7,7 +7,7 @@ A model can only read so much text at once — its **context window**. Long codi
 sessions fill it up. Tau handles this with **compaction** (summarizing older
 history) and lets you tune how hard the model works with **thinking modes**.
 
-## Seeing context usage
+## Seeing context session totals
 
 Run `/session` in the TUI to see a rough estimate:
 
